@@ -1,0 +1,5 @@
+# Включаем базовые зависимости
+-r base.txt
+
+# Production-specific
+sentry-sdk>=2.19

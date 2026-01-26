@@ -1,0 +1,148 @@
+# ===========================================
+# CTrack .gitignore
+# ===========================================
+
+# AI assistant settings
+.claude/
+.serena/
+CLAUDE.md
+
+# Documentation (internal planning)
+docs/
+
+# ===========================================
+# Python
+# ===========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# ===========================================
+# Node.js / Frontend
+# ===========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build output
+.svelte-kit/
+build/
+dist/
+
+# Vite
+*.local
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# ===========================================
+# Environment
+# ===========================================
+.env
+.env.local
+.env.*.local
+*.env
+
+# Keep .env.example
+!.env.example
+
+# ===========================================
+# IDE / Editors
+# ===========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ===========================================
+# OS
+# ===========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===========================================
+# Django
+# ===========================================
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+
+# ===========================================
+# Docker
+# ===========================================
+*.log
+
+# ===========================================
+# Misc
+# ===========================================
+*.bak
+*.tmp
+*.temp
+.cache/

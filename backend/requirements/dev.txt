@@ -1,0 +1,27 @@
+# Включаем базовые зависимости
+-r base.txt
+
+# Тестирование
+pytest>=8.3
+pytest-django>=4.9
+pytest-cov>=6.0
+pytest-asyncio>=0.24
+factory-boy>=3.3
+faker>=33.0
+
+# Отладка
+django-debug-toolbar>=4.4
+django-extensions>=3.2
+ipython>=8.30
+
+# Линтинг и форматирование
+black>=24.10
+ruff>=0.8
+mypy>=1.13
+django-stubs>=5.1
+
+# Pre-commit hooks
+pre-commit>=4.0
+
+# Проверка миграций
+django-migration-linter>=5.1

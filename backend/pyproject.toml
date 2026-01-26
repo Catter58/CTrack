@@ -1,0 +1,58 @@
+[project]
+name = "ctrack"
+version = "0.1.0"
+description = "CTrack - Task Management System"
+requires-python = ">=3.12"
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | migrations
+    | __pycache__
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [
+    ".git",
+    ".venv",
+    "migrations",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "ctrack"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+ignore_missing_imports = true
+strict = false
+
+[tool.django-stubs]
+django_settings_module = "ctrack.settings.development"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "ctrack.settings.development"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --tb=short"

@@ -1,0 +1,72 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Python
+*.py text diff=python
+*.pyi text diff=python
+
+# JavaScript/TypeScript
+*.js text
+*.ts text
+*.tsx text
+*.jsx text
+*.mjs text
+*.cjs text
+
+# Svelte
+*.svelte text
+
+# Web
+*.html text diff=html
+*.css text diff=css
+*.scss text diff=css
+*.json text
+*.xml text
+
+# Config
+*.yml text
+*.yaml text
+*.toml text
+*.ini text
+*.cfg text
+*.conf text
+
+# Markdown
+*.md text diff=markdown
+*.mdx text diff=markdown
+
+# Shell
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# Docker
+Dockerfile text
+*.dockerfile text
+
+# Images (binary)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.webp binary
+
+# Fonts (binary)
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+
+# Archives (binary)
+*.zip binary
+*.tar binary
+*.gz binary
+
+# Lock files
+package-lock.json text -diff
+yarn.lock text -diff
+pnpm-lock.yaml text -diff
+requirements/lock.txt text -diff

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Tag } from 'carbon-components-svelte';
 	import { Calendar, User, ChevronDown } from 'carbon-icons-svelte';
+	import { goto } from '$app/navigation';
 	import type { Issue } from '$lib/stores/board';
 
 	interface Assignee {
@@ -30,6 +31,9 @@
 		onUpdateAssignee,
 		availableAssignees = []
 	}: Props = $props();
+
+	// Track if we're dragging to prevent navigation
+	let isDraggingLocal = $state(false);
 
 	let isEditingSP = $state(false);
 	let editingSPValue = $state<number | null>(null);
@@ -145,9 +149,39 @@
 	}
 
 	function handleDragStartWrapper(event: DragEvent) {
+		isDraggingLocal = true;
 		if (onDragStart) {
 			onDragStart(event, issue);
 		}
+	}
+
+	function handleDragEndWrapper() {
+		isDraggingLocal = false;
+		if (onDragEnd) {
+			onDragEnd();
+		}
+	}
+
+	function handleCardClick(event: MouseEvent) {
+		// Don't navigate if we just finished dragging or if clicking on interactive elements
+		if (isDraggingLocal) {
+			event.preventDefault();
+			return;
+		}
+
+		// Don't navigate if clicking on dropdowns or inputs
+		const target = event.target as HTMLElement;
+		if (
+			target.closest('.priority-container') ||
+			target.closest('.assignee-container') ||
+			target.closest('.sp-tag') ||
+			target.closest('.sp-edit')
+		) {
+			return;
+		}
+
+		// Navigate to issue page
+		goto(`/issues/${issue.key}`);
 	}
 
 	function handlePriorityClick(event: MouseEvent) {
@@ -192,13 +226,15 @@
 
 <svelte:window onclick={handleClickOutside} />
 
-<a
-	href="/issues/{issue.key}"
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
 	class="issue-card"
 	class:is-dragging={isDragging}
 	draggable="true"
 	ondragstart={handleDragStartWrapper}
-	ondragend={onDragEnd}
+	ondragend={handleDragEndWrapper}
+	onclick={handleCardClick}
+	onkeydown={(e) => e.key === 'Enter' && handleCardClick(e as unknown as MouseEvent)}
 	role="button"
 	tabindex="0"
 >
@@ -339,7 +375,7 @@
 			</span>
 		{/if}
 	</div>
-</a>
+</div>
 
 <style>
 	.issue-card {

@@ -13,10 +13,17 @@ class UserSchema(Schema):
     email: str
     first_name: str
     last_name: str
+    full_name: str = ""
     avatar: str | None = None
     bio: str = ""
     timezone: str = "Europe/Moscow"
     is_active: bool = True
+
+    @staticmethod
+    def resolve_full_name(obj) -> str:
+        """Combine first and last name into full name."""
+        parts = [obj.first_name, obj.last_name]
+        return " ".join(p for p in parts if p).strip() or obj.username
 
     @staticmethod
     def resolve_avatar(obj) -> str | None:

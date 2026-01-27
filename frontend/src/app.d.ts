@@ -10,4 +10,6 @@ declare global {
   }
 }
 
+// EditorJS plugin types are in editorjs.d.ts
+
 export {};

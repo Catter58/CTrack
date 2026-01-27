@@ -24,6 +24,18 @@ export default ts.config(
     },
   },
   {
+    rules: {
+      // Disable strict navigation rules - static routes don't need resolve()
+      "svelte/no-navigation-without-resolve": "off",
+      // Each blocks with simple iteration don't always need keys
+      "svelte/require-each-key": "warn",
+      // Allow @html for trusted content (EditorJS)
+      "svelte/no-at-html-tags": "warn",
+      // SvelteDate is not always needed for simple date handling
+      "svelte/prefer-svelte-reactivity": "warn",
+    },
+  },
+  {
     ignores: ["build/", ".svelte-kit/", "dist/"],
   },
 );

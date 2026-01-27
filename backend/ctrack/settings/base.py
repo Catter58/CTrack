@@ -51,6 +51,9 @@ INSTALLED_APPS = [
     # Local apps
     "apps.core",
     "apps.users",
+    "apps.projects",
+    "apps.issues",
+    "apps.boards",
 ]
 
 MIDDLEWARE = [

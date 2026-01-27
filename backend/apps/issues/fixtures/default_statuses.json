@@ -1,0 +1,46 @@
+[
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000001",
+    "fields": {
+      "project": null,
+      "name": "К выполнению",
+      "category": "todo",
+      "color": "#6f6f6f",
+      "order": 1
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000002",
+    "fields": {
+      "project": null,
+      "name": "В работе",
+      "category": "in_progress",
+      "color": "#1192e8",
+      "order": 2
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000003",
+    "fields": {
+      "project": null,
+      "name": "На проверке",
+      "category": "in_progress",
+      "color": "#8a3ffc",
+      "order": 3
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000004",
+    "fields": {
+      "project": null,
+      "name": "Готово",
+      "category": "done",
+      "color": "#198038",
+      "order": 4
+    }
+  }
+]

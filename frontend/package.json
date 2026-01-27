@@ -37,6 +37,12 @@
   },
   "dependencies": {
     "@carbon/charts-svelte": "^1.22.18",
+    "@editorjs/code": "^2.9.4",
+    "@editorjs/editorjs": "^2.31.1",
+    "@editorjs/header": "^2.8.8",
+    "@editorjs/list": "^2.0.9",
+    "@editorjs/marker": "^1.4.0",
+    "@editorjs/quote": "^2.7.6",
     "carbon-components-svelte": "^0.98.8",
     "carbon-icons-svelte": "^13.8.0",
     "date-fns": "^4.1.0",

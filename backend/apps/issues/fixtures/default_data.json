@@ -1,0 +1,111 @@
+[
+  {
+    "model": "issues.issuetype",
+    "pk": "00000000-0000-0000-0000-000000000001",
+    "fields": {
+      "project": null,
+      "name": "Epic",
+      "icon": "target",
+      "color": "#8a3ffc",
+      "is_subtask": false,
+      "parent_types": [],
+      "order": 1
+    }
+  },
+  {
+    "model": "issues.issuetype",
+    "pk": "00000000-0000-0000-0000-000000000002",
+    "fields": {
+      "project": null,
+      "name": "Story",
+      "icon": "book",
+      "color": "#0f62fe",
+      "is_subtask": false,
+      "parent_types": ["00000000-0000-0000-0000-000000000001"],
+      "order": 2
+    }
+  },
+  {
+    "model": "issues.issuetype",
+    "pk": "00000000-0000-0000-0000-000000000003",
+    "fields": {
+      "project": null,
+      "name": "Task",
+      "icon": "checkmark",
+      "color": "#1192e8",
+      "is_subtask": false,
+      "parent_types": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"],
+      "order": 3
+    }
+  },
+  {
+    "model": "issues.issuetype",
+    "pk": "00000000-0000-0000-0000-000000000004",
+    "fields": {
+      "project": null,
+      "name": "Bug",
+      "icon": "debug",
+      "color": "#da1e28",
+      "is_subtask": false,
+      "parent_types": [],
+      "order": 4
+    }
+  },
+  {
+    "model": "issues.issuetype",
+    "pk": "00000000-0000-0000-0000-000000000005",
+    "fields": {
+      "project": null,
+      "name": "Subtask",
+      "icon": "subtract",
+      "color": "#6f6f6f",
+      "is_subtask": true,
+      "parent_types": ["00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"],
+      "order": 5
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000001",
+    "fields": {
+      "project": null,
+      "name": "To Do",
+      "category": "todo",
+      "color": "#6f6f6f",
+      "order": 1
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000002",
+    "fields": {
+      "project": null,
+      "name": "In Progress",
+      "category": "in_progress",
+      "color": "#0f62fe",
+      "order": 2
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000003",
+    "fields": {
+      "project": null,
+      "name": "In Review",
+      "category": "in_progress",
+      "color": "#8a3ffc",
+      "order": 3
+    }
+  },
+  {
+    "model": "issues.status",
+    "pk": "00000000-0000-0000-0001-000000000004",
+    "fields": {
+      "project": null,
+      "name": "Done",
+      "category": "done",
+      "color": "#198038",
+      "order": 4
+    }
+  }
+]

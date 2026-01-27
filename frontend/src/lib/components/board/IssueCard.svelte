@@ -340,6 +340,7 @@
 					{:else}
 						<span class="unassigned">Назначить</span>
 					{/if}
+					<ChevronDown size={16} />
 				</span>
 				{#if showAssigneeMenu}
 					<div class="dropdown-menu assignee-menu">
@@ -578,6 +579,11 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
+	}
+
+	.dropdown-item :global(svg) {
+		flex-shrink: 0;
+		color: var(--cds-text-secondary);
 	}
 
 	.unassigned {

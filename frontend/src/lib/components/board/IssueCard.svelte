@@ -230,6 +230,7 @@
 <div
 	class="issue-card"
 	class:is-dragging={isDragging}
+	class:has-dropdown-open={showPriorityMenu || showAssigneeMenu}
 	draggable="true"
 	ondragstart={handleDragStartWrapper}
 	ondragend={handleDragEndWrapper}
@@ -417,6 +418,11 @@
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 		border-color: var(--cds-interactive);
 		pointer-events: none;
+	}
+
+	.issue-card.has-dropdown-open {
+		position: relative;
+		z-index: 100;
 	}
 
 	.issue-header {

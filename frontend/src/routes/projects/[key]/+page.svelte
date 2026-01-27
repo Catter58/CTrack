@@ -17,6 +17,8 @@
 		DatePickerInput
 	} from 'carbon-components-svelte';
 	import { Add, Settings, ChartColumn } from 'carbon-icons-svelte';
+	import { dndzone, type DndEvent } from 'svelte-dnd-action';
+	import { flip } from 'svelte/animate';
 	import { projects, currentProject, projectsLoading, projectsError, projectMembers } from '$lib/stores/projects';
 	import {
 		board,
@@ -47,7 +49,7 @@
 		sprint_id?: string;
 	}
 
-	let boardFilters = $derived<BoardFilterValues>(() => {
+	let boardFilters = $derived.by<BoardFilterValues>(() => {
 		const params = $page.url.searchParams;
 		const f: BoardFilterValues = {};
 		const assignee = params.get('assignee');
@@ -140,12 +142,36 @@
 		}))
 	]);
 
-	// Drag state
-	let draggedIssue = $state<Issue | null>(null);
-	let dragOverColumnId = $state<string | null>(null);
+	// Local state for columns - required for svelte-dnd-action to work properly
+	// We sync from the store and manage locally during drag operations
+	let localColumns = $state<BoardColumn[]>([]);
+
+	// Sync local columns when store changes (but not during drag)
+	let draggedIssueId = $state<string | null>(null);
+	const flipDurationMs = 200;
+
+	$effect(() => {
+		// Only sync when not dragging to avoid conflicts
+		if (!draggedIssueId && $boardColumns.length > 0) {
+			localColumns = $boardColumns.map(col => ({
+				...col,
+				issues: [...col.issues]
+			}));
+		}
+	});
 
 	// Sprint state for scrum boards
 	let currentSprint = $state<SprintWithStats | null>(null);
+
+	// Get the dragged issue from its ID
+	let draggedIssue = $derived.by(() => {
+		if (!draggedIssueId) return null;
+		for (const col of localColumns) {
+			const found = col.issues.find(i => i.id === draggedIssueId);
+			if (found) return found;
+		}
+		return null;
+	});
 
 	// Get allowed target status IDs for the currently dragged issue
 	let allowedTargetStatusIds = $derived.by(() => {
@@ -158,7 +184,7 @@
 			.map((t) => t.to_status.id);
 	});
 
-	// Check if a column is a valid drop target
+	// Check if a column is a valid drop target for the dragged issue
 	function isValidDropTarget(columnStatusId: string): boolean {
 		if (!draggedIssue) return false;
 		// Same column - not a valid target
@@ -180,7 +206,7 @@
 		// Load board data with initial filters from URL
 		const boards = await board.loadBoards(key);
 		if (boards.length > 0) {
-			const initialFilters = boardFilters();
+			const initialFilters = boardFilters;
 			const boardData = await board.loadBoardData(boards[0].id, initialFilters);
 
 			// If scrum board, load sprint data
@@ -249,55 +275,70 @@
 		}
 	}
 
-	function handleDragStart(event: DragEvent, issue: Issue) {
-		draggedIssue = issue;
-		if (event.dataTransfer) {
-			event.dataTransfer.effectAllowed = 'move';
-			event.dataTransfer.setData('text/plain', issue.key);
+	// svelte-dnd-action handlers
+	function handleDndConsider(columnStatusId: string, e: CustomEvent<DndEvent<Issue>>) {
+		const columnIndex = localColumns.findIndex(c => c.status.id === columnStatusId);
+		if (columnIndex !== -1) {
+			// Update the column's issues during drag
+			localColumns[columnIndex] = {
+				...localColumns[columnIndex],
+				issues: e.detail.items
+			};
+		}
+		// Track which issue is being dragged
+		if (e.detail.info.trigger === 'dragStarted') {
+			draggedIssueId = e.detail.info.id as string;
 		}
 	}
 
-	function handleDragOver(event: DragEvent, columnId: string) {
-		event.preventDefault();
-		dragOverColumnId = columnId;
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = 'move';
+	async function handleDndFinalize(columnStatusId: string, e: CustomEvent<DndEvent<Issue>>) {
+		const columnIndex = localColumns.findIndex(c => c.status.id === columnStatusId);
+		if (columnIndex === -1) return;
+
+		const column = localColumns[columnIndex];
+
+		// Update column issues
+		localColumns[columnIndex] = {
+			...column,
+			issues: e.detail.items
+		};
+
+		// Find the moved issue
+		const movedIssueId = e.detail.info.id as string;
+		const movedIssue = e.detail.items.find(i => i.id === movedIssueId);
+
+		// Reset drag state
+		draggedIssueId = null;
+
+		// If the issue was moved to a different column, update status on server
+		if (movedIssue && movedIssue.status.id !== columnStatusId) {
+			// Check workflow transition
+			const transition = $workflowTransitions.find(
+				t => t.from_status.id === movedIssue.status.id && t.to_status.id === columnStatusId
+			);
+
+			if ($workflowTransitions.length > 0 && !transition) {
+				// Invalid transition - reload board to revert
+				toasts.warning('Переход недоступен', `Нельзя переместить из "${movedIssue.status.name}" в "${column.status.name}"`);
+				const boardId = $currentBoard?.id;
+				if (boardId) {
+					await board.loadBoardData(boardId, boardFilters);
+				}
+				return;
+			}
+
+			try {
+				await board.updateIssueStatus(movedIssue.key, columnStatusId);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'Ошибка обновления статуса';
+				toasts.error('Ошибка', message);
+				// Reload board to revert
+				const boardId = $currentBoard?.id;
+				if (boardId) {
+					await board.loadBoardData(boardId, boardFilters);
+				}
+			}
 		}
-	}
-
-	function handleDragLeave() {
-		dragOverColumnId = null;
-	}
-
-	async function handleDrop(event: DragEvent, column: BoardColumn) {
-		event.preventDefault();
-		dragOverColumnId = null;
-
-		if (!draggedIssue || draggedIssue.status.id === column.status.id) {
-			draggedIssue = null;
-			return;
-		}
-
-		// Check workflow transition
-		if (!isValidDropTarget(column.status.id)) {
-			toasts.warning('Переход недоступен', `Нельзя переместить из "${draggedIssue.status.name}" в "${column.status.name}"`);
-			draggedIssue = null;
-			return;
-		}
-
-		try {
-			await board.updateIssueStatus(draggedIssue.key, column.status.id);
-		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Ошибка обновления статуса';
-			toasts.error('Ошибка', message);
-		}
-
-		draggedIssue = null;
-	}
-
-	function handleDragEnd() {
-		draggedIssue = null;
-		dragOverColumnId = null;
 	}
 
 	function getColumnStoryPoints(column: BoardColumn): number {
@@ -437,22 +478,18 @@
 					full_name: m.full_name
 				}))}
 				sprints={$sprints.sprints}
-				filters={boardFilters()}
+				filters={boardFilters}
 				onFilterChange={handleFilterChange}
 			/>
 		</div>
 
 		<div class="board-container">
 			<div class="board">
-				{#each $boardColumns as column (column.status.id)}
-					<div
+				{#each localColumns as column (column.status.id)}
+						<div
 						class="column"
-						class:drag-over={dragOverColumnId === column.status.id && isValidDropTarget(column.status.id)}
-						class:drag-invalid={draggedIssue && !isValidDropTarget(column.status.id) && draggedIssue.status.id !== column.status.id}
-						class:drag-allowed={draggedIssue && isValidDropTarget(column.status.id)}
-						ondragover={(e) => handleDragOver(e, column.status.id)}
-						ondragleave={handleDragLeave}
-						ondrop={(e) => handleDrop(e, column)}
+						class:drag-over={draggedIssueId && isValidDropTarget(column.status.id)}
+						class:drag-invalid={draggedIssueId && !isValidDropTarget(column.status.id) && draggedIssue?.status.id !== column.status.id}
 						role="region"
 						aria-label={column.status.name}
 					>
@@ -477,25 +514,31 @@
 								</div>
 							</div>
 						</div>
-						<div class="column-content">
-							{#if draggedIssue && isValidDropTarget(column.status.id)}
-								<div class="drop-placeholder"></div>
-							{/if}
-							{#each column.issues as issue (issue.key)}
-								<IssueCard
-									{issue}
-									isDragging={draggedIssue?.key === issue.key}
-									onDragStart={handleDragStart}
-									onDragEnd={handleDragEnd}
-									onUpdateStoryPoints={handleUpdateStoryPoints}
-									onUpdatePriority={handleUpdatePriority}
-									onUpdateAssignee={handleUpdateAssignee}
-									availableAssignees={($projectMembers || []).map(m => ({
-										id: m.user_id,
-										username: m.username,
-										full_name: m.full_name
-									}))}
-								/>
+						<div
+							class="column-content"
+							use:dndzone={{
+								items: column.issues,
+								flipDurationMs,
+								type: 'board-issues'
+							}}
+							onconsider={(e) => handleDndConsider(column.status.id, e)}
+							onfinalize={(e) => handleDndFinalize(column.status.id, e)}
+						>
+							{#each column.issues as issue (issue.id)}
+								<article class="dnd-item" animate:flip={{ duration: flipDurationMs }}>
+									<IssueCard
+										{issue}
+										isDragging={draggedIssueId === issue.id}
+										onUpdateStoryPoints={handleUpdateStoryPoints}
+										onUpdatePriority={handleUpdatePriority}
+										onUpdateAssignee={handleUpdateAssignee}
+										availableAssignees={($projectMembers || []).map(m => ({
+											id: m.user_id,
+											username: m.username,
+											full_name: m.full_name
+										}))}
+									/>
+								</article>
 							{/each}
 						</div>
 					</div>
@@ -682,11 +725,6 @@
 		transform: scale(1.01);
 	}
 
-	.column.drag-allowed {
-		box-shadow: inset 0 0 0 1px var(--cds-support-success);
-		background: rgba(36, 161, 72, 0.05);
-	}
-
 	.column.drag-invalid {
 		opacity: 0.4;
 		box-shadow: inset 0 0 0 1px var(--cds-support-error);
@@ -754,24 +792,6 @@
 		gap: 0.5rem;
 		min-height: 100px;
 		transition: background-color 0.2s ease;
-	}
-
-	.drop-placeholder {
-		height: 80px;
-		background: var(--cds-layer-hover);
-		border: 2px dashed var(--cds-interactive);
-		border-radius: 6px;
-		opacity: 0.7;
-		animation: pulse 1s ease-in-out infinite;
-	}
-
-	@keyframes pulse {
-		0%, 100% {
-			opacity: 0.5;
-		}
-		50% {
-			opacity: 0.8;
-		}
 	}
 
 	.not-found {

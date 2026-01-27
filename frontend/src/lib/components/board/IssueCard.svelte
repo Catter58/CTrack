@@ -13,8 +13,6 @@
 	interface Props {
 		issue: Issue;
 		isDragging?: boolean;
-		onDragStart?: (event: DragEvent, issue: Issue) => void;
-		onDragEnd?: () => void;
 		onUpdateStoryPoints?: (issueKey: string, storyPoints: number | null) => Promise<void>;
 		onUpdatePriority?: (issueKey: string, priority: string) => Promise<void>;
 		onUpdateAssignee?: (issueKey: string, assigneeId: number | null) => Promise<void>;
@@ -24,16 +22,11 @@
 	let {
 		issue,
 		isDragging = false,
-		onDragStart,
-		onDragEnd,
 		onUpdateStoryPoints,
 		onUpdatePriority,
 		onUpdateAssignee,
 		availableAssignees = []
 	}: Props = $props();
-
-	// Track if we're dragging to prevent navigation
-	let isDraggingLocal = $state(false);
 
 	let isEditingSP = $state(false);
 	let editingSPValue = $state<number | null>(null);
@@ -156,27 +149,7 @@
 		handleSPSave();
 	}
 
-	function handleDragStartWrapper(event: DragEvent) {
-		isDraggingLocal = true;
-		if (onDragStart) {
-			onDragStart(event, issue);
-		}
-	}
-
-	function handleDragEndWrapper() {
-		isDraggingLocal = false;
-		if (onDragEnd) {
-			onDragEnd();
-		}
-	}
-
 	function handleCardClick(event: MouseEvent) {
-		// Don't navigate if we just finished dragging or if clicking on interactive elements
-		if (isDraggingLocal) {
-			event.preventDefault();
-			return;
-		}
-
 		// Don't navigate if clicking on dropdowns or inputs
 		const target = event.target as HTMLElement;
 		if (
@@ -237,7 +210,12 @@
 		}
 	}
 
-	function handleClickOutside() {
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		// Don't close if clicking inside a dropdown or its trigger
+		if (target.closest('.priority-container') || target.closest('.assignee-container')) {
+			return;
+		}
 		showPriorityMenu = false;
 		showAssigneeMenu = false;
 	}
@@ -249,10 +227,6 @@
 <div
 	class="issue-card"
 	class:is-dragging={isDragging}
-	class:has-dropdown-open={showPriorityMenu || showAssigneeMenu}
-	draggable="true"
-	ondragstart={handleDragStartWrapper}
-	ondragend={handleDragEndWrapper}
 	onclick={handleCardClick}
 	onkeydown={(e) => e.key === 'Enter' && handleCardClick(e as unknown as MouseEvent)}
 	role="button"
@@ -412,14 +386,9 @@
 		color: inherit;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 		transition:
-			transform 0.15s ease,
 			box-shadow 0.15s ease,
 			border-color 0.15s ease,
 			opacity 0.15s ease;
-		touch-action: manipulation;
-		-webkit-user-select: none;
-		user-select: none;
-		will-change: transform, box-shadow;
 	}
 
 	.issue-card:hover {
@@ -429,22 +398,16 @@
 
 	.issue-card:active {
 		cursor: grabbing;
-		transform: scale(1.02);
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 	}
 
 	.issue-card.is-dragging {
 		opacity: 0.5;
-		transform: scale(0.98);
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 		border-color: var(--cds-interactive);
 		pointer-events: none;
 	}
 
-	.issue-card.has-dropdown-open {
-		position: relative;
-		z-index: 100;
-	}
 
 	.issue-header {
 		display: flex;
@@ -563,23 +526,14 @@
 	}
 
 	.dropdown-menu {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		z-index: 1000;
 		min-width: 160px;
 		background: #262626;
 		border: 1px solid #525252;
 		border-radius: 4px;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-		margin-top: 4px;
 		color: #f4f4f4;
-	}
-
-	.dropdown-fixed {
 		position: fixed;
 		z-index: 10000;
-		margin-top: 0;
 	}
 
 	.dropdown-item {

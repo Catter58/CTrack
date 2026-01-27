@@ -19,6 +19,7 @@ class IssueTypeSchema(Schema):
     icon: str
     color: str
     is_subtask: bool
+    is_epic: bool
     parent_types: list[str]
     order: int
 
@@ -83,6 +84,7 @@ class IssueCreateSchema(Schema):
     priority: str = "medium"
     assignee_id: int | None = None
     parent_id: UUID | None = None
+    epic_id: UUID | None = None
     story_points: int | None = None
     due_date: date | None = None
 
@@ -97,6 +99,7 @@ class IssueUpdateSchema(Schema):
     priority: str | None = None
     assignee_id: int | None = None
     parent_id: UUID | None = None
+    epic_id: UUID | None = None
     story_points: int | None = None
     due_date: date | None = None
 
@@ -125,6 +128,9 @@ class IssueDetailSchema(IssueSchema):
     assignee: UserSchema | None
     reporter: UserSchema
     parent_id: UUID | None
+    epic_id: UUID | None
+    children_count: int = 0
+    completed_children_count: int = 0
 
 
 class IssueListSchema(Schema):
@@ -139,6 +145,7 @@ class IssueListSchema(Schema):
     created_at: datetime
     issue_type: IssueTypeSchema
     status: StatusSchema
+    epic_id: UUID | None = None
     assignee: UserSchema | None
 
 
@@ -165,3 +172,39 @@ class WorkflowTransitionSchema(Schema):
     from_status: StatusSchema
     to_status: StatusSchema
     name: str
+
+
+class BulkUpdateItemSchema(Schema):
+    """Schema for single item in bulk update."""
+
+    key: str
+    story_points: int | None = None
+
+
+class BulkUpdateSchema(Schema):
+    """Schema for bulk update request."""
+
+    issues: list[BulkUpdateItemSchema]
+
+
+class BulkUpdateResultSchema(Schema):
+    """Schema for bulk update response."""
+
+    updated: int
+    failed: list[str]
+
+
+class EpicSchema(Schema):
+    """Schema for epic with progress."""
+
+    id: UUID
+    key: str
+    title: str
+    description: str
+    priority: str
+    status: StatusSchema
+    # Progress statistics
+    total_issues: int
+    completed_issues: int
+    total_story_points: int
+    completed_story_points: int

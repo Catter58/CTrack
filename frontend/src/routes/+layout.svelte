@@ -20,6 +20,7 @@
 	import { goto } from '$app/navigation';
 	import { auth, user, isAuthenticated, isLoading } from '$lib/stores/auth';
 	import { setup, setupRequired, setupLoading } from '$lib/stores/setup';
+	import ToastContainer from '$lib/components/ToastContainer.svelte';
 
 	let { children } = $props();
 
@@ -62,6 +63,7 @@
 </script>
 
 <Theme theme="g90" />
+<ToastContainer />
 
 <svelte:head>
 	<title>CTrack</title>

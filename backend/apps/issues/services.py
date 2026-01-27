@@ -10,7 +10,14 @@ from django.db.models import Q, QuerySet
 from apps.projects.models import Project, ProjectMembership
 from apps.users.models import User
 
-from .models import Issue, IssueComment, IssueType, Status, WorkflowTransition
+from .models import (
+    Issue,
+    IssueComment,
+    IssueType,
+    Status,
+    StatusCategory,
+    WorkflowTransition,
+)
 
 
 class IssueService:
@@ -54,6 +61,7 @@ class IssueService:
         priority: str = "medium",
         assignee_id: int | None = None,
         parent_id: UUID | None = None,
+        epic_id: UUID | None = None,
         story_points: int | None = None,
         due_date=None,
     ) -> Issue:
@@ -77,6 +85,13 @@ class IssueService:
         if parent_id:
             parent = Issue.objects.filter(id=parent_id, project=project).first()
 
+        # Get epic
+        epic = None
+        if epic_id:
+            epic = Issue.objects.filter(
+                id=epic_id, project=project, issue_type__is_epic=True
+            ).first()
+
         issue = Issue(
             project=project,
             issue_type=issue_type,
@@ -87,6 +102,7 @@ class IssueService:
             assignee=assignee,
             reporter=user,
             parent=parent,
+            epic=epic,
             story_points=story_points,
             due_date=due_date,
         )
@@ -101,6 +117,7 @@ class IssueService:
         issue_type_id: UUID | None = None,
         assignee_id: int | None = None,
         priority: str | None = None,
+        epic_id: UUID | None = None,
     ) -> QuerySet[Issue]:
         """Get issues for project with optional filters."""
         queryset = Issue.objects.filter(project=project).select_related(
@@ -115,8 +132,66 @@ class IssueService:
             queryset = queryset.filter(assignee_id=assignee_id)
         if priority:
             queryset = queryset.filter(priority=priority)
+        if epic_id:
+            queryset = queryset.filter(epic_id=epic_id)
 
         return queryset.order_by("-created_at")
+
+    @staticmethod
+    def get_backlog(
+        project: Project,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> QuerySet[Issue]:
+        """Get backlog issues (not in any active/planned sprint)."""
+        from apps.sprints.models import SprintStatus
+
+        queryset = (
+            Issue.objects.filter(project=project)
+            .exclude(sprint__status__in=[SprintStatus.ACTIVE, SprintStatus.PLANNED])
+            .select_related("issue_type", "status", "assignee", "reporter")
+            .order_by("priority", "-created_at")
+        )
+
+        if offset:
+            queryset = queryset[offset:]
+        if limit:
+            queryset = queryset[:limit]
+
+        return queryset
+
+    @staticmethod
+    def get_backlog_count(project: Project) -> int:
+        """Get count of backlog issues."""
+        from apps.sprints.models import SprintStatus
+
+        return (
+            Issue.objects.filter(project=project)
+            .exclude(sprint__status__in=[SprintStatus.ACTIVE, SprintStatus.PLANNED])
+            .count()
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def update_issue_sprint(
+        issue: Issue,
+        sprint_id: UUID | None,
+    ) -> Issue:
+        """Update issue sprint assignment."""
+        from apps.sprints.models import Sprint, SprintStatus
+
+        if sprint_id is None:
+            issue.sprint = None
+        else:
+            sprint = Sprint.objects.get(id=sprint_id)
+            if sprint.status == SprintStatus.COMPLETED:
+                raise ValueError("Нельзя добавить задачу в завершённый спринт")
+            if sprint.project_id != issue.project_id:
+                raise ValueError("Спринт принадлежит другому проекту")
+            issue.sprint = sprint
+
+        issue.save()
+        return issue
 
     @staticmethod
     def get_issue_by_key(key: str) -> Issue | None:
@@ -149,6 +224,8 @@ class IssueService:
                     issue.assignee_id = value
                 elif field == "parent_id":
                     issue.parent_id = value
+                elif field == "epic_id":
+                    issue.epic_id = value
                 else:
                     setattr(issue, field, value)
 
@@ -307,3 +384,170 @@ class IssueService:
     def delete_status(status: Status) -> None:
         """Delete a status."""
         status.delete()
+
+    @staticmethod
+    @transaction.atomic
+    def bulk_update_story_points(
+        project: "Project",
+        updates: list[dict],
+    ) -> tuple[int, list[str]]:
+        """
+        Bulk update story points for multiple issues.
+
+        Args:
+            project: Project to validate issue ownership
+            updates: List of dicts with 'key' and 'story_points'
+
+        Returns:
+            Tuple of (updated_count, failed_keys)
+        """
+        updated = 0
+        failed = []
+
+        for item in updates:
+            key = item.get("key")
+            story_points = item.get("story_points")
+
+            try:
+                issue = Issue.objects.get(key=key, project=project)
+                if story_points is not None and story_points < 0:
+                    failed.append(key)
+                    continue
+                issue.story_points = story_points
+                issue.save(update_fields=["story_points", "updated_at"])
+                updated += 1
+            except Issue.DoesNotExist:
+                failed.append(key)
+
+        return updated, failed
+
+    @staticmethod
+    def get_epics(project: Project) -> list[dict]:
+        """
+        Get all epics for a project with progress statistics.
+
+        Returns list of dicts with epic data and computed progress.
+        """
+        from django.db.models import Q, Sum
+
+        epics = Issue.objects.filter(
+            project=project,
+            issue_type__is_epic=True,
+        ).select_related("issue_type", "status")
+
+        result = []
+        for epic in epics:
+            # Get all issues linked to this epic
+            epic_issues = Issue.objects.filter(epic=epic)
+
+            # Calculate statistics
+            total_issues = epic_issues.count()
+            completed_issues = epic_issues.filter(
+                status__category=StatusCategory.DONE
+            ).count()
+
+            sp_stats = epic_issues.aggregate(
+                total_sp=Sum("story_points"),
+                completed_sp=Sum(
+                    "story_points",
+                    filter=Q(status__category=StatusCategory.DONE),
+                ),
+            )
+
+            result.append(
+                {
+                    "id": epic.id,
+                    "key": epic.key,
+                    "title": epic.title,
+                    "description": epic.description,
+                    "priority": epic.priority,
+                    "status": epic.status,
+                    "total_issues": total_issues,
+                    "completed_issues": completed_issues,
+                    "total_story_points": sp_stats["total_sp"] or 0,
+                    "completed_story_points": sp_stats["completed_sp"] or 0,
+                }
+            )
+
+        return result
+
+    @staticmethod
+    def get_epic(epic_id: UUID) -> Issue | None:
+        """Get an epic by ID."""
+        try:
+            return Issue.objects.select_related("issue_type", "status").get(
+                id=epic_id, issue_type__is_epic=True
+            )
+        except Issue.DoesNotExist:
+            return None
+
+    # Issue hierarchy methods
+
+    @staticmethod
+    def validate_parent(
+        issue: Issue | None,
+        parent_id: UUID,
+        project: Project,
+    ) -> tuple[bool, str | None]:
+        """
+        Validate parent assignment for an issue.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        # Check parent exists and belongs to same project
+        try:
+            parent = Issue.objects.select_related("issue_type").get(
+                id=parent_id, project=project
+            )
+        except Issue.DoesNotExist:
+            return False, "Родительская задача не найдена"
+
+        # Check parent is not the issue itself
+        if issue and str(issue.id) == str(parent_id):
+            return False, "Задача не может быть родителем самой себя"
+
+        # Check for cycles (parent cannot be a descendant of issue)
+        if issue:
+            current = parent
+            visited = {str(issue.id)}
+            while current.parent_id:
+                if str(current.parent_id) in visited:
+                    return False, "Обнаружен цикл в иерархии задач"
+                visited.add(str(current.parent_id))
+                try:
+                    current = Issue.objects.get(id=current.parent_id)
+                except Issue.DoesNotExist:
+                    break
+
+        # Check allowed parent types (if defined)
+        if issue and issue.issue_type.parent_types:
+            allowed_types = issue.issue_type.parent_types
+            if str(parent.issue_type_id) not in allowed_types:
+                return (
+                    False,
+                    f"Тип '{parent.issue_type.name}' не может быть родителем для '{issue.issue_type.name}'",
+                )
+
+        return True, None
+
+    @staticmethod
+    def get_children(issue: Issue) -> QuerySet[Issue]:
+        """Get direct children (subtasks) of an issue."""
+        return (
+            Issue.objects.filter(parent=issue)
+            .select_related("issue_type", "status", "assignee", "reporter")
+            .order_by("-created_at")
+        )
+
+    @staticmethod
+    def get_children_stats(issue: Issue) -> dict:
+        """Get children statistics for an issue."""
+        children = Issue.objects.filter(parent=issue)
+        total = children.count()
+        completed = children.filter(status__category=StatusCategory.DONE).count()
+
+        return {
+            "children_count": total,
+            "completed_children_count": completed,
+        }

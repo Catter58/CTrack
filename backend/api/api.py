@@ -12,6 +12,7 @@ from api.health import router as health_router
 from api.issues import router as issues_router
 from api.projects import router as projects_router
 from api.setup import router as setup_router
+from api.sprints import router as sprints_router
 from api.users import router as users_router
 
 api = NinjaAPI(
@@ -41,3 +42,6 @@ api.add_router("/setup", setup_router, tags=["Setup"])
 
 # Users endpoints
 api.add_router("/users", users_router, tags=["Users"])
+
+# Sprints endpoints
+api.add_router("", sprints_router, tags=["Sprints"])

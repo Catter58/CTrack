@@ -66,6 +66,7 @@ def create_board(request, key: str, data: BoardCreateSchema):
         columns=data.columns,
         filters=data.filters,
         settings=data.settings,
+        sprint_id=data.sprint_id,
     )
 
     return 201, board
@@ -149,8 +150,24 @@ def delete_board(request, board_id: UUID):
     "/boards/{board_id}/issues",
     response={200: BoardDataSchema, 403: ErrorSchema, 404: ErrorSchema},
 )
-def get_board_issues(request, board_id: UUID):
-    """Get board data with issues grouped by columns."""
+def get_board_issues(
+    request,
+    board_id: UUID,
+    assignee_id: int | None = None,
+    type_id: UUID | None = None,
+    priority: str | None = None,
+    search: str | None = None,
+    sprint_id: str | None = None,
+):
+    """Get board data with issues grouped by columns.
+
+    Optional filters:
+    - assignee_id: Filter by assignee (use 0 for unassigned)
+    - type_id: Filter by issue type
+    - priority: Filter by priority (highest, high, medium, low, lowest)
+    - search: Search in title (case-insensitive)
+    - sprint_id: Filter by sprint ID (use "backlog" for issues without sprint)
+    """
     board = BoardService.get_board(board_id)
 
     if not board:
@@ -159,6 +176,19 @@ def get_board_issues(request, board_id: UUID):
     if not ProjectService.is_member(board.project, request.auth):
         return 403, {"detail": "Нет доступа к проекту"}
 
-    board_data = BoardService.get_board_data(board)
+    # Build filters dict
+    filters = {}
+    if assignee_id is not None:
+        filters["assignee_id"] = assignee_id if assignee_id != 0 else None
+    if type_id:
+        filters["type_id"] = type_id
+    if priority:
+        filters["priority"] = priority
+    if search:
+        filters["search"] = search
+    if sprint_id:
+        filters["sprint_id"] = sprint_id
+
+    board_data = BoardService.get_board_data(board, filters=filters)
 
     return 200, board_data

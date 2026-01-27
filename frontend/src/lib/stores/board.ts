@@ -11,6 +11,7 @@ export interface IssueType {
   icon: string;
   color: string;
   is_subtask: boolean;
+  is_epic: boolean;
 }
 
 export interface Status {
@@ -29,6 +30,7 @@ export interface Issue {
   priority: "lowest" | "low" | "medium" | "high" | "highest";
   story_points: number | null;
   due_date: string | null;
+  epic_id: string | null;
   issue_type: IssueType;
   status: Status;
   assignee: {
@@ -49,6 +51,7 @@ export interface Board {
   columns: string[];
   filters: Record<string, unknown>;
   settings: Record<string, unknown>;
+  sprint_id: string | null;
 }
 
 export interface BoardColumn {
@@ -122,11 +125,41 @@ function createBoardStore() {
       }
     },
 
-    async loadBoardData(boardId: string) {
+    async loadBoardData(
+      boardId: string,
+      filters?: {
+        assignee_id?: number;
+        type_id?: string;
+        priority?: string;
+        search?: string;
+        sprint_id?: string;
+      },
+    ) {
       update((s) => ({ ...s, isLoading: true, error: null }));
 
       try {
-        const data = await api.get<BoardData>(`/api/boards/${boardId}/issues`);
+        // Build query params from filters
+        const params: Record<string, string> = {};
+        if (filters?.assignee_id !== undefined) {
+          params.assignee_id = String(filters.assignee_id);
+        }
+        if (filters?.type_id) {
+          params.type_id = filters.type_id;
+        }
+        if (filters?.priority) {
+          params.priority = filters.priority;
+        }
+        if (filters?.search) {
+          params.search = filters.search;
+        }
+        if (filters?.sprint_id) {
+          params.sprint_id = filters.sprint_id;
+        }
+
+        const data = await api.get<BoardData>(
+          `/api/boards/${boardId}/issues`,
+          Object.keys(params).length > 0 ? params : undefined,
+        );
         update((s) => ({
           ...s,
           currentBoard: data.board,
@@ -271,6 +304,7 @@ function createBoardStore() {
         assignee_id?: number;
         due_date?: string;
         status_id?: string;
+        epic_id?: string;
       },
     ) {
       try {
@@ -298,6 +332,102 @@ function createBoardStore() {
         const message =
           err instanceof Error ? err.message : "Failed to create issue";
         throw new Error(message);
+      }
+    },
+
+    async updateIssue(
+      issueKey: string,
+      data: {
+        priority?: string;
+        assignee_id?: number | null;
+        story_points?: number | null;
+        title?: string;
+        description?: string;
+      },
+    ) {
+      // Optimistic update - create new objects for proper reactivity
+      update((s) => {
+        const newColumns = s.columns.map((col) => {
+          const issueIndex = col.issues.findIndex((i) => i.key === issueKey);
+          if (issueIndex === -1) return col;
+
+          // Create new issue object with updates
+          const updatedIssue = { ...col.issues[issueIndex] };
+          if (data.priority !== undefined) {
+            updatedIssue.priority = data.priority as Issue["priority"];
+          }
+          if (data.story_points !== undefined) {
+            updatedIssue.story_points = data.story_points;
+          }
+          if (data.assignee_id !== undefined) {
+            if (data.assignee_id === null) {
+              updatedIssue.assignee = null;
+            }
+            // Note: For assignee, we'd need the full user object
+            // The API will return updated issue, so we'll reload if needed
+          }
+
+          // Create new issues array with updated issue
+          const newIssues = [...col.issues];
+          newIssues[issueIndex] = updatedIssue;
+
+          // Return new column object
+          return { ...col, issues: newIssues };
+        });
+        return { ...s, columns: newColumns };
+      });
+
+      try {
+        const updated = await api.patch(`/api/issues/${issueKey}`, data);
+        // Update with server response to get full assignee data
+        if (data.assignee_id !== undefined) {
+          const state = get(store);
+          if (state.currentBoard) {
+            await this.loadBoardData(state.currentBoard.id);
+          }
+        }
+        return updated;
+      } catch (err) {
+        // Revert on error - reload board
+        const state = get(store);
+        if (state.currentBoard) {
+          await this.loadBoardData(state.currentBoard.id);
+        }
+        throw err;
+      }
+    },
+
+    async updateIssueStoryPoints(issueKey: string, storyPoints: number | null) {
+      // Optimistic update - create new objects for proper reactivity
+      update((s) => {
+        const newColumns = s.columns.map((col) => {
+          const issueIndex = col.issues.findIndex((i) => i.key === issueKey);
+          if (issueIndex === -1) return col;
+
+          // Create new issue with updated story points
+          const updatedIssue = {
+            ...col.issues[issueIndex],
+            story_points: storyPoints,
+          };
+          const newIssues = [...col.issues];
+          newIssues[issueIndex] = updatedIssue;
+
+          return { ...col, issues: newIssues };
+        });
+        return { ...s, columns: newColumns };
+      });
+
+      try {
+        await api.patch(`/api/issues/${issueKey}`, {
+          story_points: storyPoints,
+        });
+      } catch (err) {
+        // Revert on error - reload board
+        const state = get(store);
+        if (state.currentBoard) {
+          await this.loadBoardData(state.currentBoard.id);
+        }
+        throw err;
       }
     },
 

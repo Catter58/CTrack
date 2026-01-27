@@ -48,6 +48,15 @@ class Board(models.Model):
         default=dict,
         blank=True,
     )
+    sprint = models.ForeignKey(
+        "sprints.Sprint",
+        on_delete=models.SET_NULL,
+        related_name="boards",
+        verbose_name="Спринт",
+        null=True,
+        blank=True,
+        help_text="Активный спринт для Scrum-доски",
+    )
     created_at = models.DateTimeField("Создана", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлена", auto_now=True)
 

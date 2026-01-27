@@ -7,7 +7,6 @@
 		Tile,
 		Loading,
 		InlineNotification,
-		ToastNotification,
 		Tag,
 		Modal,
 		TextInput,
@@ -17,11 +16,12 @@
 		DatePicker,
 		DatePickerInput
 	} from 'carbon-components-svelte';
-	import { Add, Settings, User, Calendar } from 'carbon-icons-svelte';
+	import { Add, Settings, ChartColumn } from 'carbon-icons-svelte';
 	import { projects, currentProject, projectsLoading, projectsError, projectMembers } from '$lib/stores/projects';
 	import {
 		board,
 		boardColumns,
+		currentBoard,
 		issueTypes,
 		boardLoading,
 		boardError,
@@ -29,9 +29,86 @@
 		type Issue,
 		type BoardColumn
 	} from '$lib/stores/board';
+	import { sprints, type SprintWithStats } from '$lib/stores/sprints';
+	import { epicsStore, epicsList } from '$lib/stores/epics';
 	import RichEditor from '$lib/components/RichEditor.svelte';
+	import { SprintHeader, IssueCard, BoardFilters, BoardSkeleton } from '$lib/components/board';
+	import { goto } from '$app/navigation';
+	import { toasts } from '$lib/stores/toast';
 
 	const projectKey = $derived($page.params.key);
+
+	// Board filters from URL
+	interface BoardFilterValues {
+		assignee_id?: number;
+		type_id?: string;
+		priority?: string;
+		search?: string;
+		sprint_id?: string;
+	}
+
+	let boardFilters = $derived<BoardFilterValues>(() => {
+		const params = $page.url.searchParams;
+		const f: BoardFilterValues = {};
+		const assignee = params.get('assignee');
+		if (assignee !== null) {
+			f.assignee_id = parseInt(assignee);
+		}
+		const type = params.get('type');
+		if (type) {
+			f.type_id = type;
+		}
+		const priority = params.get('priority');
+		if (priority) {
+			f.priority = priority;
+		}
+		const search = params.get('search');
+		if (search) {
+			f.search = search;
+		}
+		const sprintId = params.get('sprint');
+		if (sprintId) {
+			f.sprint_id = sprintId;
+		}
+		return f;
+	});
+
+	function handleFilterChange(filters: BoardFilterValues) {
+		const url = new URL($page.url);
+
+		// Clear existing filter params
+		url.searchParams.delete('assignee');
+		url.searchParams.delete('type');
+		url.searchParams.delete('priority');
+		url.searchParams.delete('search');
+		url.searchParams.delete('sprint');
+
+		// Set new params
+		if (filters.assignee_id !== undefined) {
+			url.searchParams.set('assignee', String(filters.assignee_id));
+		}
+		if (filters.type_id) {
+			url.searchParams.set('type', filters.type_id);
+		}
+		if (filters.priority) {
+			url.searchParams.set('priority', filters.priority);
+		}
+		if (filters.search) {
+			url.searchParams.set('search', filters.search);
+		}
+		if (filters.sprint_id) {
+			url.searchParams.set('sprint', filters.sprint_id);
+		}
+
+		// Navigate with new URL (without page reload)
+		goto(url.toString(), { replaceState: true, noScroll: true });
+
+		// Reload board with filters
+		const boardId = $currentBoard?.id;
+		if (boardId) {
+			board.loadBoardData(boardId, filters);
+		}
+	}
 
 	let showCreateIssueModal = $state(false);
 	let newIssueTitle = $state('');
@@ -39,7 +116,9 @@
 	let newIssuePriority = $state('medium');
 	let newIssueDescription = $state('');
 	let newIssueAssigneeId = $state<string>('none');
+	let newIssueEpicId = $state<string>('none');
 	let newIssueDueDate = $state<string>('');
+	let newIssueStatusId = $state<string>('');
 	let isCreating = $state(false);
 	let createError = $state<string | null>(null);
 
@@ -52,23 +131,21 @@
 		}))
 	]);
 
+	// Epic dropdown items
+	let epicItems = $derived([
+		{ id: 'none', text: 'Без эпика' },
+		...$epicsList.map((e) => ({
+			id: e.id,
+			text: `${e.key}: ${e.title}`
+		}))
+	]);
+
 	// Drag state
 	let draggedIssue = $state<Issue | null>(null);
 	let dragOverColumnId = $state<string | null>(null);
 
-	// Toast notification state
-	let toastMessage = $state<string | null>(null);
-	let toastTimeout: ReturnType<typeof setTimeout> | null = null;
-
-	function showToast(message: string) {
-		toastMessage = message;
-		if (toastTimeout) {
-			clearTimeout(toastTimeout);
-		}
-		toastTimeout = setTimeout(() => {
-			toastMessage = null;
-		}, 4000);
-	}
+	// Sprint state for scrum boards
+	let currentSprint = $state<SprintWithStats | null>(null);
 
 	// Get allowed target status IDs for the currently dragged issue
 	let allowedTargetStatusIds = $derived.by(() => {
@@ -94,21 +171,32 @@
 
 	onMount(async () => {
 		const key = get(page).params.key!;
-		// Load project and members in parallel
+		// Load project, members, and sprints in parallel
 		await Promise.all([
 			projects.loadProject(key),
-			projects.loadMembers(key)
+			projects.loadMembers(key),
+			sprints.loadSprints(key)
 		]);
-		// Load board data
+		// Load board data with initial filters from URL
 		const boards = await board.loadBoards(key);
 		if (boards.length > 0) {
-			await board.loadBoardData(boards[0].id);
+			const initialFilters = boardFilters();
+			const boardData = await board.loadBoardData(boards[0].id, initialFilters);
+
+			// If scrum board, load sprint data
+			if (boardData && boardData.board.board_type === 'scrum' && boardData.board.sprint_id) {
+				const sprint = await sprints.loadSprint(boardData.board.sprint_id);
+				if (sprint) {
+					currentSprint = sprint;
+				}
+			}
 		}
-		// Load issue types, statuses and workflow in parallel
+		// Load issue types, statuses, workflow and epics in parallel
 		await Promise.all([
 			board.loadIssueTypes(key),
 			board.loadStatuses(key),
-			board.loadWorkflow(key)
+			board.loadWorkflow(key),
+			epicsStore.loadEpics(key)
 		]);
 	});
 
@@ -121,8 +209,13 @@
 		}
 	});
 
+	function handleQuickCreate(statusId: string) {
+		newIssueStatusId = statusId;
+		showCreateIssueModal = true;
+	}
+
 	async function handleCreateIssue() {
-		if (!newIssueTitle.trim() || !newIssueTypeId) {
+		if (!projectKey || !newIssueTitle.trim() || !newIssueTypeId) {
 			createError = 'Название и тип обязательны';
 			return;
 		}
@@ -137,14 +230,18 @@
 				priority: newIssuePriority,
 				description: newIssueDescription.trim() || undefined,
 				assignee_id: newIssueAssigneeId !== 'none' ? parseInt(newIssueAssigneeId) : undefined,
-				due_date: newIssueDueDate || undefined
+				epic_id: newIssueEpicId !== 'none' ? newIssueEpicId : undefined,
+				due_date: newIssueDueDate || undefined,
+				status_id: newIssueStatusId || undefined
 			});
 
 			showCreateIssueModal = false;
 			newIssueTitle = '';
 			newIssueDescription = '';
 			newIssueAssigneeId = 'none';
+			newIssueEpicId = 'none';
 			newIssueDueDate = '';
+			newIssueStatusId = '';
 		} catch (err) {
 			createError = err instanceof Error ? err.message : 'Не удалось создать задачу';
 		} finally {
@@ -183,7 +280,7 @@
 
 		// Check workflow transition
 		if (!isValidDropTarget(column.status.id)) {
-			showToast(`Нельзя переместить из "${draggedIssue.status.name}" в "${column.status.name}"`);
+			toasts.warning('Переход недоступен', `Нельзя переместить из "${draggedIssue.status.name}" в "${column.status.name}"`);
 			draggedIssue = null;
 			return;
 		}
@@ -192,7 +289,7 @@
 			await board.updateIssueStatus(draggedIssue.key, column.status.id);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Ошибка обновления статуса';
-			showToast(message);
+			toasts.error('Ошибка', message);
 		}
 
 		draggedIssue = null;
@@ -203,64 +300,70 @@
 		dragOverColumnId = null;
 	}
 
-	function getPriorityColor(priority: string): string {
-		switch (priority) {
-			case 'highest':
-				return '#da1e28';
-			case 'high':
-				return '#ff832b';
-			case 'medium':
-				return '#f1c21b';
-			case 'low':
-				return '#0f62fe';
-			case 'lowest':
-				return '#6f6f6f';
-			default:
-				return '#6f6f6f';
+	function getColumnStoryPoints(column: BoardColumn): number {
+		return column.issues.reduce((sum, issue) => sum + (issue.story_points || 0), 0);
+	}
+
+	async function handleUpdatePriority(issueKey: string, priority: string) {
+		try {
+			await board.updateIssue(issueKey, { priority });
+			toasts.success('Приоритет обновлён');
+		} catch (err) {
+			console.error('Failed to update priority:', err);
 		}
 	}
 
-	function getPriorityLabel(priority: string): string {
-		switch (priority) {
-			case 'highest':
-				return 'Критический';
-			case 'high':
-				return 'Высокий';
-			case 'medium':
-				return 'Средний';
-			case 'low':
-				return 'Низкий';
-			case 'lowest':
-				return 'Минимальный';
-			default:
-				return priority;
+	async function handleUpdateAssignee(issueKey: string, assigneeId: number | null) {
+		try {
+			await board.updateIssue(issueKey, { assignee_id: assigneeId });
+			toasts.success('Исполнитель обновлён');
+		} catch (err) {
+			console.error('Failed to update assignee:', err);
 		}
 	}
 
-	function formatDueDate(dateStr: string | null): string {
-		if (!dateStr) return '';
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('ru-RU', {
-			day: 'numeric',
-			month: 'short'
-		});
+	// Keyboard shortcuts
+	function handleKeyDown(event: KeyboardEvent) {
+		// Don't trigger shortcuts when typing in inputs
+		if (
+			event.target instanceof HTMLInputElement ||
+			event.target instanceof HTMLTextAreaElement ||
+			event.target instanceof HTMLSelectElement
+		) {
+			return;
+		}
+
+		switch (event.key.toLowerCase()) {
+			case 'c':
+				// Create new issue
+				showCreateIssueModal = true;
+				event.preventDefault();
+				break;
+			case 'b':
+				// Go to backlog
+				window.location.href = `/projects/${projectKey}/backlog`;
+				event.preventDefault();
+				break;
+			case '/':
+				// Focus search (if implemented)
+				event.preventDefault();
+				break;
+			case 'escape':
+				// Close modal
+				if (showCreateIssueModal) {
+					showCreateIssueModal = false;
+					event.preventDefault();
+				}
+				break;
+		}
 	}
 
-	function isDueOverdue(dateStr: string | null): boolean {
-		if (!dateStr) return false;
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const due = new Date(dateStr);
-		return due < today;
-	}
-
-	function isDueSoon(dateStr: string | null): boolean {
-		if (!dateStr) return false;
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const due = new Date(dateStr);
-		const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-		return diffDays >= 0 && diffDays <= 2;
+	async function handleUpdateStoryPoints(issueKey: string, storyPoints: number | null) {
+		try {
+			await board.updateIssueStoryPoints(issueKey, storyPoints);
+		} catch {
+			toasts.error('Ошибка', 'Не удалось обновить Story Points');
+		}
 	}
 </script>
 
@@ -268,10 +371,14 @@
 	<title>{$currentProject?.name || projectKey} - CTrack</title>
 </svelte:head>
 
-{#if $projectsLoading || $boardLoading}
+<svelte:window onkeydown={handleKeyDown} />
+
+{#if $projectsLoading}
 	<div class="loading-container">
 		<Loading withOverlay={false} />
 	</div>
+{:else if $boardLoading && !$currentBoard}
+	<BoardSkeleton columns={4} cardsPerColumn={3} />
 {:else if $projectsError}
 	<InlineNotification
 		kind="error"
@@ -281,28 +388,26 @@
 	/>
 {:else if $currentProject}
 	<div class="project-page">
-		{#if toastMessage}
-			<div class="toast-container">
-				<ToastNotification
-					kind="warning"
-					title="Переход недоступен"
-					subtitle={toastMessage}
-					timeout={4000}
-					on:close={() => (toastMessage = null)}
-				/>
-			</div>
-		{/if}
 		<header class="project-header">
 			<div class="header-content">
-				<div class="project-title">
-					<Tag type="blue">{$currentProject.key}</Tag>
-					<h1>{$currentProject.name}</h1>
-				</div>
+				<h1 class="project-title">{$currentProject.name}</h1>
 				{#if $currentProject.description}
 					<p class="description">{$currentProject.description}</p>
 				{/if}
 			</div>
 			<div class="header-actions">
+				<Button kind="ghost" href="/projects/{projectKey}/backlog">
+					Бэклог
+				</Button>
+				<Button kind="ghost" href="/projects/{projectKey}/epics">
+					Эпики
+				</Button>
+				<Button kind="ghost" href="/projects/{projectKey}/sprints">
+					Спринты
+				</Button>
+				<Button kind="ghost" icon={ChartColumn} href="/projects/{projectKey}/metrics">
+					Метрики
+				</Button>
 				<Button kind="ghost" icon={Settings} href="/projects/{projectKey}/settings">
 					Настройки
 				</Button>
@@ -318,6 +423,24 @@
 				on:close={() => board.clearError()}
 			/>
 		{/if}
+
+		{#if $currentBoard?.board_type === 'scrum' && currentSprint}
+			<SprintHeader sprint={currentSprint} />
+		{/if}
+
+		<div class="filters-container">
+			<BoardFilters
+				issueTypes={$issueTypes}
+				members={($projectMembers || []).map((m) => ({
+					id: m.user_id,
+					username: m.username,
+					full_name: m.full_name
+				}))}
+				sprints={$sprints.sprints}
+				filters={boardFilters()}
+				onFilterChange={handleFilterChange}
+			/>
+		</div>
 
 		<div class="board-container">
 			<div class="board">
@@ -338,58 +461,41 @@
 								<span class="status-dot" style="background-color: {column.status.color}"></span>
 								{column.status.name}
 							</span>
-							<Tag size="sm">{column.count}</Tag>
+							<div class="column-actions">
+								<button
+									class="quick-add-btn"
+									title="Добавить задачу в {column.status.name}"
+									onclick={() => handleQuickCreate(column.status.id)}
+								>
+									<Add size={16} />
+								</button>
+								<div class="column-stats">
+									<Tag size="sm">{column.count}</Tag>
+									{#if getColumnStoryPoints(column) > 0}
+										<Tag size="sm" type="outline">{getColumnStoryPoints(column)} SP</Tag>
+									{/if}
+								</div>
+							</div>
 						</div>
 						<div class="column-content">
+							{#if draggedIssue && isValidDropTarget(column.status.id)}
+								<div class="drop-placeholder"></div>
+							{/if}
 							{#each column.issues as issue (issue.key)}
-								<a
-									href="/issues/{issue.key}"
-									class="issue-card"
-									draggable="true"
-									ondragstart={(e) => handleDragStart(e, issue)}
-									ondragend={handleDragEnd}
-									role="button"
-									tabindex="0"
-								>
-									<div class="issue-header">
-										<span class="issue-type" style="color: {issue.issue_type.color}">
-											{issue.issue_type.name}
-										</span>
-										<span class="issue-key">{issue.key}</span>
-									</div>
-									<h4 class="issue-title">{issue.title}</h4>
-									<div class="issue-footer">
-										<span
-											class="priority"
-											style="color: {getPriorityColor(issue.priority)}"
-											title={getPriorityLabel(issue.priority)}
-										>
-											{getPriorityLabel(issue.priority)}
-										</span>
-										{#if issue.story_points}
-											<Tag size="sm" type="outline">{issue.story_points} SP</Tag>
-										{/if}
-									</div>
-									<div class="issue-meta">
-										{#if issue.due_date}
-											<span
-												class="due-date"
-												class:overdue={isDueOverdue(issue.due_date)}
-												class:due-soon={isDueSoon(issue.due_date)}
-												title="Срок: {formatDueDate(issue.due_date)}"
-											>
-												<Calendar size={14} />
-												{formatDueDate(issue.due_date)}
-											</span>
-										{/if}
-										{#if issue.assignee}
-											<span class="assignee" title={issue.assignee.full_name || issue.assignee.username}>
-												<User size={14} />
-												{issue.assignee.full_name?.split(' ')[0] || issue.assignee.username}
-											</span>
-										{/if}
-									</div>
-								</a>
+								<IssueCard
+									{issue}
+									isDragging={draggedIssue?.key === issue.key}
+									onDragStart={handleDragStart}
+									onDragEnd={handleDragEnd}
+									onUpdateStoryPoints={handleUpdateStoryPoints}
+									onUpdatePriority={handleUpdatePriority}
+									onUpdateAssignee={handleUpdateAssignee}
+									availableAssignees={($projectMembers || []).map(m => ({
+										id: m.user_id,
+										username: m.username,
+										full_name: m.full_name
+									}))}
+								/>
 							{/each}
 						</div>
 					</div>
@@ -474,6 +580,17 @@
 			</div>
 		</div>
 
+		{#if epicItems.length > 1}
+			<div class="form-group">
+				<Dropdown
+					titleText="Эпик"
+					selectedId={newIssueEpicId}
+					items={epicItems}
+					on:select={(e) => (newIssueEpicId = e.detail.selectedId)}
+				/>
+			</div>
+		{/if}
+
 		<div class="form-group">
 			<label class="bx--label">Описание</label>
 			<RichEditor
@@ -486,13 +603,6 @@
 </Modal>
 
 <style>
-	.toast-container {
-		position: fixed;
-		top: 64px;
-		right: 1rem;
-		z-index: 9000;
-	}
-
 	.loading-container {
 		min-height: 50vh;
 		display: flex;
@@ -517,12 +627,6 @@
 	}
 
 	.project-title {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.project-title h1 {
 		font-size: 1.5rem;
 		font-weight: 600;
 		margin: 0;
@@ -537,6 +641,11 @@
 	.header-actions {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	.filters-container {
+		padding: 0 1rem;
+		flex-shrink: 0;
 	}
 
 	.board-container {
@@ -560,21 +669,28 @@
 		display: flex;
 		flex-direction: column;
 		max-height: 100%;
-		transition: box-shadow 0.15s ease;
+		transition:
+			box-shadow 0.2s ease,
+			background-color 0.2s ease,
+			opacity 0.2s ease,
+			transform 0.2s ease;
 	}
 
 	.column.drag-over {
 		box-shadow: inset 0 0 0 2px var(--cds-support-success);
-		background: rgba(36, 161, 72, 0.1);
+		background: rgba(36, 161, 72, 0.15);
+		transform: scale(1.01);
 	}
 
 	.column.drag-allowed {
 		box-shadow: inset 0 0 0 1px var(--cds-support-success);
+		background: rgba(36, 161, 72, 0.05);
 	}
 
 	.column.drag-invalid {
-		opacity: 0.5;
+		opacity: 0.4;
 		box-shadow: inset 0 0 0 1px var(--cds-support-error);
+		background: rgba(218, 30, 40, 0.05);
 	}
 
 	.column-header {
@@ -592,6 +708,37 @@
 		font-weight: 600;
 	}
 
+	.column-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.quick-add-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border: none;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--cds-text-secondary);
+		cursor: pointer;
+		transition: all 0.1s ease;
+	}
+
+	.quick-add-btn:hover {
+		background: var(--cds-layer-hover);
+		color: var(--cds-interactive);
+	}
+
+	.column-stats {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
 	.status-dot {
 		width: 10px;
 		height: 10px;
@@ -605,97 +752,26 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		min-height: 100px;
+		transition: background-color 0.2s ease;
 	}
 
-	.issue-card {
-		display: block;
-		background: var(--cds-field);
-		border: 1px solid var(--cds-border-strong-01, #525252);
+	.drop-placeholder {
+		height: 80px;
+		background: var(--cds-layer-hover);
+		border: 2px dashed var(--cds-interactive);
 		border-radius: 6px;
-		padding: 0.75rem;
-		cursor: grab;
-		text-decoration: none;
-		color: inherit;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-		transition:
-			transform 0.1s ease,
-			box-shadow 0.1s ease,
-			border-color 0.1s ease;
+		opacity: 0.7;
+		animation: pulse 1s ease-in-out infinite;
 	}
 
-	.issue-card:hover {
-		border-color: var(--cds-interactive);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-	}
-
-	.issue-card:active {
-		cursor: grabbing;
-		transform: scale(1.02);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-	}
-
-	.issue-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		font-size: 0.75rem;
-		margin-bottom: 0.5rem;
-	}
-
-	.issue-type {
-		font-weight: 500;
-	}
-
-	.issue-key {
-		color: var(--cds-text-secondary);
-	}
-
-	.issue-title {
-		font-size: 0.875rem;
-		font-weight: 500;
-		margin: 0 0 0.5rem;
-		line-height: 1.3;
-	}
-
-	.issue-footer {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.75rem;
-	}
-
-	.priority {
-		font-weight: 500;
-	}
-
-	.issue-meta {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		font-size: 0.75rem;
-		margin-top: 0.5rem;
-		color: var(--cds-text-secondary);
-	}
-
-	.due-date {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.due-date.overdue {
-		color: var(--cds-support-error, #da1e28);
-	}
-
-	.due-date.due-soon {
-		color: var(--cds-support-warning, #f1c21b);
-	}
-
-	.assignee {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		margin-left: auto;
+	@keyframes pulse {
+		0%, 100% {
+			opacity: 0.5;
+		}
+		50% {
+			opacity: 0.8;
+		}
 	}
 
 	.not-found {

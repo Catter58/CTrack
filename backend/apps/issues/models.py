@@ -44,6 +44,11 @@ class IssueType(models.Model):
     icon = models.CharField("Иконка", max_length=50, blank=True)
     color = models.CharField("Цвет", max_length=20, blank=True, default="#1192e8")
     is_subtask = models.BooleanField("Подзадача", default=False)
+    is_epic = models.BooleanField(
+        "Эпик",
+        default=False,
+        help_text="Эпики группируют связанные задачи",
+    )
     parent_types = models.JSONField(
         "Допустимые родительские типы",
         default=list,
@@ -190,6 +195,24 @@ class Issue(models.Model):
         on_delete=models.SET_NULL,
         related_name="subtasks",
         verbose_name="Родительская задача",
+        null=True,
+        blank=True,
+    )
+    epic = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="epic_issues",
+        verbose_name="Эпик",
+        null=True,
+        blank=True,
+        limit_choices_to={"issue_type__is_epic": True},
+        help_text="Эпик, к которому относится задача",
+    )
+    sprint = models.ForeignKey(
+        "sprints.Sprint",
+        on_delete=models.SET_NULL,
+        related_name="issues",
+        verbose_name="Спринт",
         null=True,
         blank=True,
     )

@@ -8,8 +8,11 @@ from ninja import Router
 
 from apps.issues.models import Issue, IssueType, Status
 from apps.issues.schemas import (
+    BulkUpdateResultSchema,
+    BulkUpdateSchema,
     CommentCreateSchema,
     CommentSchema,
+    EpicSchema,
     IssueCreateSchema,
     IssueDetailSchema,
     IssueListSchema,
@@ -311,12 +314,25 @@ def create_issue(request, key: str, data: IssueCreateSchema):
         return 403, {"detail": "Недостаточно прав для создания задач"}
 
     # Validate issue type
-    if not IssueType.objects.filter(id=data.issue_type_id).exists():
+    issue_type = IssueType.objects.filter(id=data.issue_type_id).first()
+    if not issue_type:
         return 400, {"detail": "Тип задачи не найден"}
 
     # Validate status if provided
     if data.status_id and not Status.objects.filter(id=data.status_id).exists():
         return 400, {"detail": "Статус не найден"}
+
+    # Validate parent_id if provided
+    if data.parent_id:
+        # Create a simple object for validation
+        from types import SimpleNamespace
+
+        temp_issue = SimpleNamespace(id=None, issue_type=issue_type)
+        is_valid, error = IssueService.validate_parent(
+            temp_issue, data.parent_id, project
+        )
+        if not is_valid:
+            return 400, {"detail": error}
 
     issue = IssueService.create_issue(
         project=project,
@@ -328,6 +344,7 @@ def create_issue(request, key: str, data: IssueCreateSchema):
         priority=data.priority,
         assignee_id=data.assignee_id,
         parent_id=data.parent_id,
+        epic_id=data.epic_id,
         story_points=data.story_points,
         due_date=data.due_date,
     )
@@ -346,6 +363,7 @@ def list_issues(
     issue_type_id: UUID = None,
     assignee_id: int = None,
     priority: str = None,
+    epic_id: UUID = None,
 ):
     """Get issues for project with optional filters."""
     project = ProjectService.get_project_by_key(key)
@@ -362,6 +380,7 @@ def list_issues(
         issue_type_id=issue_type_id,
         assignee_id=assignee_id,
         priority=priority,
+        epic_id=epic_id,
     )
 
     return 200, list(issues)
@@ -381,7 +400,30 @@ def get_issue(request, issue_key: str):
     if not ProjectService.is_member(issue.project, request.auth):
         return 403, {"detail": "Нет доступа к проекту"}
 
+    # Add children stats
+    stats = IssueService.get_children_stats(issue)
+    issue.children_count = stats["children_count"]
+    issue.completed_children_count = stats["completed_children_count"]
+
     return 200, issue
+
+
+@router.get(
+    "/issues/{issue_key}/children",
+    response={200: list[IssueListSchema], 403: ErrorSchema, 404: ErrorSchema},
+)
+def get_issue_children(request, issue_key: str):
+    """Get children (subtasks) of an issue."""
+    issue = IssueService.get_issue_by_key(issue_key)
+
+    if not issue:
+        return 404, {"detail": "Задача не найдена"}
+
+    if not ProjectService.is_member(issue.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    children = IssueService.get_children(issue)
+    return 200, children
 
 
 @router.patch(
@@ -412,10 +454,23 @@ def update_issue(request, issue_key: str, data: IssueUpdateSchema):
         if not IssueService.can_transition(issue, data.status_id, request.auth):
             return 400, {"detail": "Недопустимый переход статуса"}
 
-    update_data = data.dict(exclude_unset=True)
-    issue = IssueService.update_issue(issue, **update_data)
+    # Validate parent_id if being changed
+    if data.parent_id is not None and data.parent_id != issue.parent_id:
+        is_valid, error = IssueService.validate_parent(
+            issue, data.parent_id, issue.project
+        )
+        if not is_valid:
+            return 400, {"detail": error}
 
-    return 200, issue
+    update_data = data.dict(exclude_unset=True)
+    updated_issue = IssueService.update_issue(issue, **update_data)
+
+    # Add children stats for response
+    stats = IssueService.get_children_stats(updated_issue)
+    updated_issue.children_count = stats["children_count"]
+    updated_issue.completed_children_count = stats["completed_children_count"]
+
+    return 200, updated_issue
 
 
 @router.delete(
@@ -499,3 +554,106 @@ def get_issue_transitions(request, issue_key: str):
 
     transitions = IssueService.get_available_transitions(issue, request.auth)
     return 200, transitions
+
+
+# Backlog endpoints
+
+
+@router.get(
+    "/projects/{key}/backlog",
+    response={200: list[IssueListSchema], 403: ErrorSchema, 404: ErrorSchema},
+)
+def get_backlog(
+    request,
+    key: str,
+    limit: int = None,
+    offset: int = 0,
+):
+    """Get backlog issues (not in active/planned sprints)."""
+    project = ProjectService.get_project_by_key(key)
+
+    if not project:
+        return 404, {"detail": "Проект не найден"}
+
+    if not ProjectService.is_member(project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    issues = IssueService.get_backlog(project, limit=limit, offset=offset)
+    return 200, list(issues)
+
+
+@router.patch(
+    "/issues/{issue_key}/sprint",
+    response={
+        200: IssueDetailSchema,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def update_issue_sprint(request, issue_key: str, sprint_id: UUID = None):
+    """Update issue sprint assignment."""
+    issue = IssueService.get_issue_by_key(issue_key)
+
+    if not issue:
+        return 404, {"detail": "Задача не найдена"}
+
+    membership = ProjectService.get_user_membership(issue.project, request.auth)
+    if not membership:
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if not membership.can_edit:
+        return 403, {"detail": "Недостаточно прав для редактирования задач"}
+
+    try:
+        issue = IssueService.update_issue_sprint(issue, sprint_id)
+        return 200, issue
+    except ValueError as e:
+        return 400, {"detail": str(e)}
+
+
+@router.patch(
+    "/projects/{key}/issues/bulk-update",
+    response={200: BulkUpdateResultSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def bulk_update_issues(request, key: str, data: BulkUpdateSchema):
+    """Bulk update story points for multiple issues."""
+    project = ProjectService.get_project_by_key(key)
+
+    if not project:
+        return 404, {"detail": "Проект не найден"}
+
+    membership = ProjectService.get_user_membership(project, request.auth)
+    if not membership:
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if not membership.can_edit:
+        return 403, {"detail": "Недостаточно прав для редактирования задач"}
+
+    updates = [
+        {"key": item.key, "story_points": item.story_points} for item in data.issues
+    ]
+    updated, failed = IssueService.bulk_update_story_points(project, updates)
+
+    return 200, {"updated": updated, "failed": failed}
+
+
+# Epics endpoints
+
+
+@router.get(
+    "/projects/{key}/epics",
+    response={200: list[EpicSchema], 403: ErrorSchema, 404: ErrorSchema},
+)
+def list_epics(request, key: str):
+    """Get all epics for a project with progress statistics."""
+    project = ProjectService.get_project_by_key(key)
+
+    if not project:
+        return 404, {"detail": "Проект не найден"}
+
+    if not ProjectService.is_member(project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    epics = IssueService.get_epics(project)
+    return 200, epics

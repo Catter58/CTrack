@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.issues",
     "apps.boards",
+    "apps.sprints",
 ]
 
 MIDDLEWARE = [

@@ -25,15 +25,18 @@
 		currentIssue,
 		issueComments,
 		issueTransitions,
+		issueChildren,
 		issueLoading,
 		issueError,
 		priorityLabels,
 		priorityColors
 	} from '$lib/stores/issue';
 	import { projects, projectMembers } from '$lib/stores/projects';
+	import { board, statuses } from '$lib/stores/board';
 	import api from '$lib/api/client';
 	import RichEditor from '$lib/components/RichEditor.svelte';
 	import RichContent from '$lib/components/RichContent.svelte';
+	import { SubtasksList } from '$lib/components/issues';
 
 	const issueKey = $page.params.key!;
 
@@ -56,13 +59,20 @@
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
 
+	// Get done status for quick-complete
+	let doneStatusId = $derived(
+		$statuses.find((s) => s.category === 'done')?.id ?? null
+	);
+
 	onMount(async () => {
 		const projectKey = issueKey?.split('-')[0];
 		await Promise.all([
 			issue.load(issueKey),
 			issue.loadComments(issueKey),
 			issue.loadTransitions(issueKey),
-			projectKey ? projects.loadMembers(projectKey) : Promise.resolve()
+			issue.loadChildren(issueKey),
+			projectKey ? projects.loadMembers(projectKey) : Promise.resolve(),
+			projectKey ? board.loadStatuses(projectKey) : Promise.resolve()
 		]);
 	});
 
@@ -253,6 +263,17 @@
 						<Button kind="secondary" on:click={cancelEdit}>Отмена</Button>
 						<Button on:click={saveEdit}>Сохранить</Button>
 					</div>
+				{/if}
+
+				<!-- Subtasks Section -->
+				{#if $currentIssue && ($currentIssue.children_count > 0 || !$currentIssue.issue_type.is_subtask)}
+					<SubtasksList
+						children={$issueChildren}
+						childrenCount={$currentIssue.children_count}
+						completedChildrenCount={$currentIssue.completed_children_count}
+						{doneStatusId}
+						onComplete={(childKey, statusId) => issue.quickCompleteChild(childKey, statusId)}
+					/>
 				{/if}
 
 				<!-- Comments Section -->

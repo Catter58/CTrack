@@ -19,6 +19,7 @@ class BoardCreateSchema(Schema):
     columns: list[str] | None = None
     filters: dict[str, Any] | None = None
     settings: dict[str, Any] | None = None
+    sprint_id: UUID | None = None
 
 
 class BoardUpdateSchema(Schema):
@@ -28,6 +29,7 @@ class BoardUpdateSchema(Schema):
     columns: list[str] | None = None
     filters: dict[str, Any] | None = None
     settings: dict[str, Any] | None = None
+    sprint_id: UUID | None = None
 
 
 class BoardSchema(Schema):
@@ -39,6 +41,7 @@ class BoardSchema(Schema):
     columns: list[str]
     filters: dict[str, Any]
     settings: dict[str, Any]
+    sprint_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

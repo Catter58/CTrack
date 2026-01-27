@@ -61,12 +61,30 @@ export interface IssueDetail {
   assignee: User | null;
   reporter: User;
   parent_id: string | null;
+  epic_id: string | null;
+  children_count: number;
+  completed_children_count: number;
+}
+
+export interface ChildIssue {
+  id: string;
+  key: string;
+  title: string;
+  priority: string;
+  story_points: number | null;
+  due_date: string | null;
+  created_at: string;
+  issue_type: IssueType;
+  status: Status;
+  assignee: User | null;
+  epic_id: string | null;
 }
 
 interface IssueState {
   issue: IssueDetail | null;
   comments: Comment[];
   transitions: WorkflowTransition[];
+  children: ChildIssue[];
   isLoading: boolean;
   error: string | null;
 }
@@ -76,6 +94,7 @@ function createIssueStore() {
     issue: null,
     comments: [],
     transitions: [],
+    children: [],
     isLoading: false,
     error: null,
   });
@@ -121,6 +140,47 @@ function createIssueStore() {
       } catch (err) {
         console.error("Failed to load transitions:", err);
         return [];
+      }
+    },
+
+    async loadChildren(issueKey: string) {
+      try {
+        const children = await api.get<ChildIssue[]>(
+          `/api/issues/${issueKey}/children`,
+        );
+        update((s) => ({ ...s, children }));
+        return children;
+      } catch (err) {
+        console.error("Failed to load children:", err);
+        return [];
+      }
+    },
+
+    async quickCompleteChild(childKey: string, doneStatusId: string) {
+      try {
+        await api.patch(`/api/issues/${childKey}`, {
+          status_id: doneStatusId,
+        });
+        // Update the child's status in local state
+        update((s) => ({
+          ...s,
+          children: s.children.map((c) =>
+            c.key === childKey
+              ? { ...c, status: { ...c.status, category: "done" } }
+              : c,
+          ),
+          // Update parent's stats
+          issue: s.issue
+            ? {
+                ...s.issue,
+                completed_children_count: s.issue.completed_children_count + 1,
+              }
+            : s.issue,
+        }));
+        return true;
+      } catch (err) {
+        console.error("Failed to complete child:", err);
+        return false;
       }
     },
 
@@ -203,6 +263,7 @@ function createIssueStore() {
         issue: null,
         comments: [],
         transitions: [],
+        children: [],
         isLoading: false,
         error: null,
       });
@@ -219,6 +280,7 @@ export const issue = createIssueStore();
 export const currentIssue = derived(issue, ($s) => $s.issue);
 export const issueComments = derived(issue, ($s) => $s.comments);
 export const issueTransitions = derived(issue, ($s) => $s.transitions);
+export const issueChildren = derived(issue, ($s) => $s.children);
 export const issueLoading = derived(issue, ($s) => $s.isLoading);
 export const issueError = derived(issue, ($s) => $s.error);
 

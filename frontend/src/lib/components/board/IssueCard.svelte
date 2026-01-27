@@ -41,6 +41,14 @@
 	let showPriorityMenu = $state(false);
 	let showAssigneeMenu = $state(false);
 
+	// Refs for dropdown positioning
+	let priorityTriggerRef: HTMLElement | null = $state(null);
+	let assigneeTriggerRef: HTMLElement | null = $state(null);
+
+	// Dropdown positions (for fixed positioning)
+	let priorityMenuStyle = $state('');
+	let assigneeMenuStyle = $state('');
+
 	const priorities = [
 		{ value: 'highest', label: 'Критический', color: '#da1e28' },
 		{ value: 'high', label: 'Высокий', color: '#ff832b' },
@@ -188,8 +196,13 @@
 		if (!onUpdatePriority) return;
 		event.preventDefault();
 		event.stopPropagation();
-		showPriorityMenu = !showPriorityMenu;
 		showAssigneeMenu = false;
+
+		if (!showPriorityMenu && priorityTriggerRef) {
+			const rect = priorityTriggerRef.getBoundingClientRect();
+			priorityMenuStyle = `top: ${rect.bottom + 4}px; left: ${rect.left}px;`;
+		}
+		showPriorityMenu = !showPriorityMenu;
 	}
 
 	async function handlePrioritySelect(priority: string, event: MouseEvent) {
@@ -205,8 +218,14 @@
 		if (!onUpdateAssignee) return;
 		event.preventDefault();
 		event.stopPropagation();
-		showAssigneeMenu = !showAssigneeMenu;
 		showPriorityMenu = false;
+
+		if (!showAssigneeMenu && assigneeTriggerRef) {
+			const rect = assigneeTriggerRef.getBoundingClientRect();
+			// Position to the right edge of the trigger
+			assigneeMenuStyle = `top: ${rect.bottom + 4}px; right: ${window.innerWidth - rect.right}px;`;
+		}
+		showAssigneeMenu = !showAssigneeMenu;
 	}
 
 	async function handleAssigneeSelect(assigneeId: number | null, event: MouseEvent) {
@@ -255,12 +274,13 @@
 					class="priority clickable"
 					style="color: {getPriorityColor(issue.priority)}"
 					title="Клик для изменения приоритета"
+					bind:this={priorityTriggerRef}
 				>
 					{getPriorityLabel(issue.priority)}
 					<ChevronDown size={16} />
 				</span>
 				{#if showPriorityMenu}
-					<div class="dropdown-menu priority-menu">
+					<div class="dropdown-menu dropdown-fixed" style={priorityMenuStyle}>
 						{#each priorities as p}
 							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -334,6 +354,7 @@
 				<span
 					class="assignee clickable"
 					title={issue.assignee ? (issue.assignee.full_name || issue.assignee.username) : 'Назначить'}
+					bind:this={assigneeTriggerRef}
 				>
 					<User size={16} />
 					{#if issue.assignee}
@@ -344,7 +365,7 @@
 					<ChevronDown size={16} />
 				</span>
 				{#if showAssigneeMenu}
-					<div class="dropdown-menu assignee-menu">
+					<div class="dropdown-menu dropdown-fixed" style={assigneeMenuStyle}>
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
@@ -555,9 +576,10 @@
 		color: #f4f4f4;
 	}
 
-	.assignee-menu {
-		left: auto;
-		right: 0;
+	.dropdown-fixed {
+		position: fixed;
+		z-index: 10000;
+		margin-top: 0;
 	}
 
 	.dropdown-item {

@@ -2,6 +2,7 @@
 Issue service layer.
 """
 
+import re
 from uuid import UUID
 
 from django.db import transaction
@@ -11,13 +12,95 @@ from apps.projects.models import Project, ProjectMembership
 from apps.users.models import User
 
 from .models import (
+    ActivityAction,
     Issue,
+    IssueActivity,
+    IssueAttachment,
     IssueComment,
     IssueType,
     Status,
     StatusCategory,
     WorkflowTransition,
 )
+
+
+class ActivityService:
+    @staticmethod
+    def log(
+        issue: Issue,
+        user: User,
+        action: str,
+        field_name: str = "",
+        old_value=None,
+        new_value=None,
+    ) -> IssueActivity:
+        return IssueActivity.objects.create(
+            issue=issue,
+            user=user,
+            action=action,
+            field_name=field_name,
+            old_value=old_value,
+            new_value=new_value,
+        )
+
+    @staticmethod
+    def log_creation(issue: Issue, user: User) -> IssueActivity:
+        return ActivityService.log(issue, user, ActivityAction.CREATED)
+
+    @staticmethod
+    def log_status_change(
+        issue: Issue,
+        user: User,
+        old_status_name: str,
+        new_status_name: str,
+        old_status_category: str | None = None,
+        new_status_category: str | None = None,
+    ) -> IssueActivity:
+        old_value = {"name": old_status_name}
+        new_value = {"name": new_status_name}
+        if old_status_category:
+            old_value["category"] = old_status_category
+        if new_status_category:
+            new_value["category"] = new_status_category
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.STATUS_CHANGED,
+            "status",
+            old_value,
+            new_value,
+        )
+
+    @staticmethod
+    def log_assignment(
+        issue: Issue, user: User, old_assignee: str | None, new_assignee: str | None
+    ) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.ASSIGNED,
+            "assignee",
+            {"name": old_assignee} if old_assignee else None,
+            {"name": new_assignee} if new_assignee else None,
+        )
+
+    @staticmethod
+    def log_comment(issue: Issue, user: User) -> IssueActivity:
+        return ActivityService.log(issue, user, ActivityAction.COMMENTED)
+
+    @staticmethod
+    def get_issue_activities(issue: Issue) -> QuerySet[IssueActivity]:
+        return issue.activities.select_related("user").order_by("-created_at")
+
+    @staticmethod
+    def get_project_activities(
+        project_id: UUID, limit: int = 50
+    ) -> QuerySet[IssueActivity]:
+        return (
+            IssueActivity.objects.filter(issue__project_id=project_id)
+            .select_related("user", "issue")
+            .order_by("-created_at")[:limit]
+        )
 
 
 class IssueService:
@@ -64,6 +147,7 @@ class IssueService:
         epic_id: UUID | None = None,
         story_points: int | None = None,
         due_date=None,
+        custom_fields: dict | None = None,
     ) -> Issue:
         """Create a new issue."""
         # Get issue type
@@ -105,6 +189,7 @@ class IssueService:
             epic=epic,
             story_points=story_points,
             due_date=due_date,
+            custom_fields=custom_fields or {},
         )
         issue.save()
 
@@ -118,8 +203,11 @@ class IssueService:
         assignee_id: int | None = None,
         priority: str | None = None,
         epic_id: UUID | None = None,
+        search: str | None = None,
     ) -> QuerySet[Issue]:
         """Get issues for project with optional filters."""
+        from django.db.models import Q
+
         queryset = Issue.objects.filter(project=project).select_related(
             "issue_type", "status", "assignee", "reporter"
         )
@@ -128,12 +216,19 @@ class IssueService:
             queryset = queryset.filter(status_id=status_id)
         if issue_type_id:
             queryset = queryset.filter(issue_type_id=issue_type_id)
-        if assignee_id:
-            queryset = queryset.filter(assignee_id=assignee_id)
+        if assignee_id is not None:
+            if assignee_id == 0:
+                queryset = queryset.filter(assignee__isnull=True)
+            else:
+                queryset = queryset.filter(assignee_id=assignee_id)
         if priority:
             queryset = queryset.filter(priority=priority)
         if epic_id:
             queryset = queryset.filter(epic_id=epic_id)
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(key__icontains=search)
+            )
 
         return queryset.order_by("-created_at")
 
@@ -244,8 +339,37 @@ class IssueService:
 
     @staticmethod
     def add_comment(issue: Issue, user: User, content: str) -> IssueComment:
-        """Add comment to issue."""
         return IssueComment.objects.create(issue=issue, author=user, content=content)
+
+    @staticmethod
+    def update_comment(comment: IssueComment, content: str) -> IssueComment:
+        comment.content = content
+        comment.save(update_fields=["content", "updated_at"])
+        return comment
+
+    @staticmethod
+    def delete_comment(comment: IssueComment) -> None:
+        comment.delete()
+
+    @staticmethod
+    def get_comment_by_id(comment_id: UUID) -> IssueComment | None:
+        return (
+            IssueComment.objects.select_related("issue", "issue__project", "author")
+            .filter(id=comment_id)
+            .first()
+        )
+
+    @staticmethod
+    def parse_mentions(content: str) -> list[str]:
+        pattern = r"@(\w+)"
+        return list(set(re.findall(pattern, content)))
+
+    @staticmethod
+    def get_mentioned_users(content: str) -> QuerySet[User]:
+        usernames = IssueService.parse_mentions(content)
+        if not usernames:
+            return User.objects.none()
+        return User.objects.filter(username__in=usernames)
 
     @staticmethod
     def get_available_transitions(
@@ -551,3 +675,115 @@ class IssueService:
             "children_count": total,
             "completed_children_count": completed,
         }
+
+    # Workflow transition management
+
+    @staticmethod
+    def get_workflow_transition_by_id(
+        transition_id: UUID,
+    ) -> WorkflowTransition | None:
+        """Get workflow transition by ID."""
+        return (
+            WorkflowTransition.objects.filter(id=transition_id)
+            .select_related("project", "from_status", "to_status")
+            .first()
+        )
+
+    @staticmethod
+    def create_workflow_transition(
+        project: Project,
+        from_status_id: UUID,
+        to_status_id: UUID,
+        name: str = "",
+        allowed_roles: list[str] | None = None,
+    ) -> WorkflowTransition:
+        """Create a new workflow transition."""
+        from_status = Status.objects.get(id=from_status_id)
+        to_status = Status.objects.get(id=to_status_id)
+
+        return WorkflowTransition.objects.create(
+            project=project,
+            from_status=from_status,
+            to_status=to_status,
+            name=name,
+            allowed_roles=allowed_roles or [],
+        )
+
+    @staticmethod
+    def update_workflow_transition(
+        transition: WorkflowTransition, **kwargs
+    ) -> WorkflowTransition:
+        """Update workflow transition fields."""
+        for field, value in kwargs.items():
+            if value is not None:
+                setattr(transition, field, value)
+        transition.save()
+        return transition
+
+    @staticmethod
+    def delete_workflow_transition(transition: WorkflowTransition) -> None:
+        """Delete a workflow transition."""
+        transition.delete()
+
+    @staticmethod
+    @transaction.atomic
+    def execute_transition(
+        issue: Issue, transition: WorkflowTransition, user: User
+    ) -> Issue:
+        """Execute a workflow transition on an issue."""
+        if issue.status_id != transition.from_status_id:
+            raise ValueError("Текущий статус задачи не соответствует переходу")
+
+        if issue.project_id != transition.project_id:
+            raise ValueError("Переход не принадлежит проекту задачи")
+
+        if transition.allowed_roles:
+            membership = ProjectMembership.objects.filter(
+                project=issue.project, user=user
+            ).first()
+            if not membership or membership.role not in transition.allowed_roles:
+                raise ValueError("Недостаточно прав для выполнения перехода")
+
+        issue.status = transition.to_status
+        issue.save()
+        return issue
+
+    # Attachment methods
+
+    @staticmethod
+    def create_attachment(
+        issue: Issue,
+        user: User,
+        file,
+        filename: str,
+        content_type: str,
+    ) -> IssueAttachment:
+        """Create a new attachment for an issue."""
+        return IssueAttachment.objects.create(
+            issue=issue,
+            uploaded_by=user,
+            file=file,
+            filename=filename,
+            file_size=file.size,
+            content_type=content_type,
+        )
+
+    @staticmethod
+    def get_attachment_by_id(attachment_id: UUID) -> IssueAttachment | None:
+        """Get attachment by ID."""
+        return (
+            IssueAttachment.objects.filter(id=attachment_id)
+            .select_related("issue", "issue__project", "uploaded_by")
+            .first()
+        )
+
+    @staticmethod
+    def delete_attachment(attachment: IssueAttachment) -> None:
+        """Delete an attachment and its file."""
+        attachment.file.delete(save=False)
+        attachment.delete()
+
+    @staticmethod
+    def get_attachments(issue: Issue) -> QuerySet[IssueAttachment]:
+        """Get all attachments for an issue."""
+        return issue.attachments.select_related("uploaded_by").order_by("-created_at")

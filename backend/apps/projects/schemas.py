@@ -81,3 +81,50 @@ class ProjectListSchema(Schema):
     created_at: datetime
     member_count: int = 0
     my_role: str | None = None
+
+
+class SavedFilterSchema(Schema):
+    """Schema for saved filter response."""
+
+    id: UUID
+    project_id: UUID
+    user_id: int
+    name: str
+    filters: dict[str, Any]
+    columns: list[str]
+    sort_by: str
+    sort_order: str
+    is_shared: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedFilterCreateSchema(Schema):
+    """Schema for creating a saved filter."""
+
+    name: str
+    filters: dict[str, Any] = {}
+    columns: list[str] = []
+    sort_by: str = ""
+    sort_order: str = "asc"
+    is_shared: bool = False
+
+
+class SavedFilterUpdateSchema(Schema):
+    """Schema for updating a saved filter."""
+
+    name: str | None = None
+    filters: dict[str, Any] | None = None
+    columns: list[str] | None = None
+    sort_by: str | None = None
+    sort_order: str | None = None
+    is_shared: bool | None = None
+
+
+class PaginatedIssueListSchema(Schema):
+    """Schema for paginated issue list."""
+
+    items: list
+    total: int
+    limit: int
+    offset: int

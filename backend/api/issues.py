@@ -4,18 +4,24 @@ Issues API endpoints.
 
 from uuid import UUID
 
+from django.http import FileResponse
 from ninja import Router
+from ninja.files import UploadedFile
 
 from apps.issues.models import Issue, IssueType, Status
 from apps.issues.schemas import (
+    ActivitySchema,
+    AttachmentSchema,
     BulkUpdateResultSchema,
     BulkUpdateSchema,
     CommentCreateSchema,
     CommentSchema,
+    CommentUpdateSchema,
     EpicSchema,
     IssueCreateSchema,
     IssueDetailSchema,
     IssueListSchema,
+    IssuePaginatedResponseSchema,
     IssueTypeCreateSchema,
     IssueTypeSchema,
     IssueTypeUpdateSchema,
@@ -24,8 +30,9 @@ from apps.issues.schemas import (
     StatusSchema,
     StatusUpdateSchema,
     WorkflowTransitionSchema,
+    WorkflowTransitionUpdateSchema,
 )
-from apps.issues.services import IssueService
+from apps.issues.services import ActivityService, IssueService
 from apps.projects.services import ProjectService
 from apps.users.auth import AuthBearer
 from apps.users.schemas import ErrorSchema, MessageSchema
@@ -347,6 +354,7 @@ def create_issue(request, key: str, data: IssueCreateSchema):
         epic_id=data.epic_id,
         story_points=data.story_points,
         due_date=data.due_date,
+        custom_fields=data.custom_fields,
     )
 
     return 201, issue
@@ -354,18 +362,22 @@ def create_issue(request, key: str, data: IssueCreateSchema):
 
 @router.get(
     "/projects/{key}/issues",
-    response={200: list[IssueListSchema], 403: ErrorSchema, 404: ErrorSchema},
+    response={200: IssuePaginatedResponseSchema, 403: ErrorSchema, 404: ErrorSchema},
 )
 def list_issues(
     request,
     key: str,
     status_id: UUID = None,
     issue_type_id: UUID = None,
+    type_id: UUID = None,
     assignee_id: int = None,
     priority: str = None,
     epic_id: UUID = None,
+    search: str = None,
+    page: int = 1,
+    page_size: int = 20,
 ):
-    """Get issues for project with optional filters."""
+    """Get issues for project with optional filters and pagination."""
     project = ProjectService.get_project_by_key(key)
 
     if not project:
@@ -374,16 +386,32 @@ def list_issues(
     if not ProjectService.is_member(project, request.auth):
         return 403, {"detail": "Нет доступа к проекту"}
 
+    # Support both issue_type_id and type_id for backwards compatibility
+    effective_type_id = issue_type_id or type_id
+
     issues = IssueService.get_issues(
         project,
         status_id=status_id,
-        issue_type_id=issue_type_id,
+        issue_type_id=effective_type_id,
         assignee_id=assignee_id,
         priority=priority,
         epic_id=epic_id,
+        search=search,
     )
 
-    return 200, list(issues)
+    # Get total count before pagination
+    total = issues.count()
+
+    # Apply pagination
+    offset = (page - 1) * page_size
+    paginated_issues = list(issues[offset : offset + page_size])
+
+    return 200, {
+        "items": paginated_issues,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.get(
@@ -450,6 +478,7 @@ def update_issue(request, issue_key: str, data: IssueUpdateSchema):
         return 403, {"detail": "Недостаточно прав для редактирования задач"}
 
     # Check workflow if status is being changed
+    old_status = issue.status
     if data.status_id and data.status_id != issue.status_id:
         if not IssueService.can_transition(issue, data.status_id, request.auth):
             return 400, {"detail": "Недопустимый переход статуса"}
@@ -464,6 +493,18 @@ def update_issue(request, issue_key: str, data: IssueUpdateSchema):
 
     update_data = data.dict(exclude_unset=True)
     updated_issue = IssueService.update_issue(issue, **update_data)
+
+    # Log status change activity if status was changed
+    if data.status_id and data.status_id != old_status.id:
+        new_status = updated_issue.status
+        ActivityService.log_status_change(
+            updated_issue,
+            request.auth,
+            old_status.name,
+            new_status.name,
+            old_status.category,
+            new_status.category,
+        )
 
     # Add children stats for response
     stats = IssueService.get_children_stats(updated_issue)
@@ -535,6 +576,63 @@ def add_comment(request, issue_key: str, data: CommentCreateSchema):
     return 201, comment
 
 
+@router.patch(
+    "/comments/{comment_id}",
+    response={200: CommentSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def update_comment(request, comment_id: UUID, data: CommentUpdateSchema):
+    comment = IssueService.get_comment_by_id(comment_id)
+
+    if not comment:
+        return 404, {"detail": "Комментарий не найден"}
+
+    if comment.author != request.auth:
+        return 403, {"detail": "Только автор может редактировать комментарий"}
+
+    updated = IssueService.update_comment(comment, data.content)
+    return 200, updated
+
+
+@router.delete(
+    "/comments/{comment_id}",
+    response={204: None, 403: ErrorSchema, 404: ErrorSchema},
+)
+def delete_comment(request, comment_id: UUID):
+    comment = IssueService.get_comment_by_id(comment_id)
+
+    if not comment:
+        return 404, {"detail": "Комментарий не найден"}
+
+    is_author = comment.author == request.auth
+    is_admin = ProjectService.is_admin(comment.issue.project, request.auth)
+
+    if not is_author and not is_admin:
+        return 403, {"detail": "Только автор или админ может удалить комментарий"}
+
+    IssueService.delete_comment(comment)
+    return 204, None
+
+
+# Activity endpoints
+
+
+@router.get(
+    "/issues/{issue_key}/activity",
+    response={200: list[ActivitySchema], 403: ErrorSchema, 404: ErrorSchema},
+)
+def get_issue_activity(request, issue_key: str):
+    issue = IssueService.get_issue_by_key(issue_key)
+
+    if not issue:
+        return 404, {"detail": "Задача не найдена"}
+
+    if not ProjectService.is_member(issue.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    activities = ActivityService.get_issue_activities(issue)
+    return 200, list(activities)
+
+
 # Workflow endpoints
 
 
@@ -554,6 +652,96 @@ def get_issue_transitions(request, issue_key: str):
 
     transitions = IssueService.get_available_transitions(issue, request.auth)
     return 200, transitions
+
+
+@router.post(
+    "/issues/{issue_key}/transitions/{transition_id}",
+    response={
+        200: IssueDetailSchema,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def execute_transition(request, issue_key: str, transition_id: UUID):
+    """Execute a workflow transition on an issue."""
+    issue = IssueService.get_issue_by_key(issue_key)
+
+    if not issue:
+        return 404, {"detail": "Задача не найдена"}
+
+    membership = ProjectService.get_user_membership(issue.project, request.auth)
+    if not membership:
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if not membership.can_edit:
+        return 403, {"detail": "Недостаточно прав для редактирования задач"}
+
+    transition = IssueService.get_workflow_transition_by_id(transition_id)
+    if not transition:
+        return 404, {"detail": "Переход не найден"}
+
+    try:
+        updated_issue = IssueService.execute_transition(issue, transition, request.auth)
+        stats = IssueService.get_children_stats(updated_issue)
+        updated_issue.children_count = stats["children_count"]
+        updated_issue.completed_children_count = stats["completed_children_count"]
+        return 200, updated_issue
+    except ValueError as e:
+        return 400, {"detail": str(e)}
+
+
+@router.patch(
+    "/workflow/{transition_id}",
+    response={
+        200: WorkflowTransitionSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def update_workflow_transition(
+    request, transition_id: UUID, data: WorkflowTransitionUpdateSchema
+):
+    """Update a workflow transition."""
+    transition = IssueService.get_workflow_transition_by_id(transition_id)
+
+    if not transition:
+        return 404, {"detail": "Переход не найден"}
+
+    membership = ProjectService.get_user_membership(transition.project, request.auth)
+    if not membership:
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if not membership.can_manage:
+        return 403, {"detail": "Недостаточно прав для управления workflow"}
+
+    update_data = data.dict(exclude_unset=True)
+    transition = IssueService.update_workflow_transition(transition, **update_data)
+
+    return 200, transition
+
+
+@router.delete(
+    "/workflow/{transition_id}",
+    response={200: MessageSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def delete_workflow_transition(request, transition_id: UUID):
+    """Delete a workflow transition."""
+    transition = IssueService.get_workflow_transition_by_id(transition_id)
+
+    if not transition:
+        return 404, {"detail": "Переход не найден"}
+
+    membership = ProjectService.get_user_membership(transition.project, request.auth)
+    if not membership:
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if not membership.can_manage:
+        return 403, {"detail": "Недостаточно прав для управления workflow"}
+
+    IssueService.delete_workflow_transition(transition)
+
+    return 200, {"message": "Переход удалён"}
 
 
 # Backlog endpoints
@@ -657,3 +845,130 @@ def list_epics(request, key: str):
 
     epics = IssueService.get_epics(project)
     return 200, epics
+
+
+# Attachments endpoints
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+ALLOWED_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+    "application/json",
+    "application/xml",
+    "application/zip",
+    "application/x-rar-compressed",
+    "application/x-7z-compressed",
+    "application/gzip",
+}
+
+
+@router.post(
+    "/issues/{issue_key}/attachments",
+    response={
+        201: AttachmentSchema,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def upload_attachment(request, issue_key: str, file: UploadedFile):
+    """Upload a file attachment to an issue."""
+    issue = IssueService.get_issue_by_key(issue_key)
+
+    if not issue:
+        return 404, {"detail": "Задача не найдена"}
+
+    if not ProjectService.is_member(issue.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if file.size > MAX_FILE_SIZE:
+        return 400, {"detail": "Размер файла превышает 10 МБ"}
+
+    content_type = file.content_type or "application/octet-stream"
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        return 400, {"detail": f"Недопустимый тип файла: {content_type}"}
+
+    attachment = IssueService.create_attachment(
+        issue=issue,
+        user=request.auth,
+        file=file,
+        filename=file.name,
+        content_type=content_type,
+    )
+
+    return 201, attachment
+
+
+@router.get(
+    "/issues/{issue_key}/attachments",
+    response={200: list[AttachmentSchema], 403: ErrorSchema, 404: ErrorSchema},
+)
+def list_attachments(request, issue_key: str):
+    """Get all attachments for an issue."""
+    issue = IssueService.get_issue_by_key(issue_key)
+
+    if not issue:
+        return 404, {"detail": "Задача не найдена"}
+
+    if not ProjectService.is_member(issue.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    attachments = IssueService.get_attachments(issue)
+    return 200, list(attachments)
+
+
+@router.get(
+    "/attachments/{attachment_id}/download",
+    response={403: ErrorSchema, 404: ErrorSchema},
+)
+def download_attachment(request, attachment_id: UUID):
+    """Download an attachment file."""
+    attachment = IssueService.get_attachment_by_id(attachment_id)
+
+    if not attachment:
+        return 404, {"detail": "Вложение не найдено"}
+
+    if not ProjectService.is_member(attachment.issue.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    return FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=True,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+    )
+
+
+@router.delete(
+    "/attachments/{attachment_id}",
+    response={204: None, 403: ErrorSchema, 404: ErrorSchema},
+)
+def delete_attachment(request, attachment_id: UUID):
+    """Delete an attachment. Only the author or project admin can delete."""
+    attachment = IssueService.get_attachment_by_id(attachment_id)
+
+    if not attachment:
+        return 404, {"detail": "Вложение не найдено"}
+
+    is_author = attachment.uploaded_by == request.auth
+    is_admin = ProjectService.is_admin(attachment.issue.project, request.auth)
+
+    if not is_author and not is_admin:
+        return 403, {"detail": "Только автор или админ может удалить вложение"}
+
+    IssueService.delete_attachment(attachment)
+    return 204, None

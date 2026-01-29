@@ -2,21 +2,32 @@
 Projects API endpoints.
 """
 
-from django.db.models import Count
+from uuid import UUID
+
+from django.db.models import Count, Q
 from ninja import Router
 
-from apps.issues.models import WorkflowTransition
-from apps.issues.schemas import WorkflowTransitionSchema
-from apps.projects.models import Project, ProjectMembership, ProjectRole
+from apps.issues.models import Issue, Status, WorkflowTransition
+from apps.issues.schemas import (
+    IssueListSchema,
+    WorkflowTransitionCreateSchema,
+    WorkflowTransitionSchema,
+)
+from apps.issues.services import IssueService
+from apps.projects.models import Project, ProjectMembership, ProjectRole, SortOrder
 from apps.projects.schemas import (
     MemberAddSchema,
     MembershipSchema,
     MemberUpdateSchema,
+    PaginatedIssueListSchema,
     ProjectCreateSchema,
     ProjectListSchema,
     ProjectSchema,
     ProjectUpdateSchema,
     ProjectWithOwnerSchema,
+    SavedFilterCreateSchema,
+    SavedFilterSchema,
+    SavedFilterUpdateSchema,
 )
 from apps.projects.services import ProjectService
 from apps.users.auth import AuthBearer
@@ -304,3 +315,235 @@ def get_project_workflow(request, key: str):
     )
 
     return 200, list(transitions)
+
+
+@router.post(
+    "/{key}/workflow",
+    response={
+        201: WorkflowTransitionSchema,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def create_workflow_transition(request, key: str, data: WorkflowTransitionCreateSchema):
+    """Create a new workflow transition for project."""
+    project = ProjectService.get_project_by_key(key)
+
+    if not project:
+        return 404, {"detail": "Проект не найден"}
+
+    membership = ProjectService.get_user_membership(project, request.auth)
+    if not membership:
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if not membership.can_manage:
+        return 403, {"detail": "Недостаточно прав для управления workflow"}
+
+    if not Status.objects.filter(id=data.from_status_id).exists():
+        return 400, {"detail": "Исходный статус не найден"}
+
+    if not Status.objects.filter(id=data.to_status_id).exists():
+        return 400, {"detail": "Целевой статус не найден"}
+
+    if WorkflowTransition.objects.filter(
+        project=project,
+        from_status_id=data.from_status_id,
+        to_status_id=data.to_status_id,
+    ).exists():
+        return 400, {"detail": "Такой переход уже существует"}
+
+    transition = IssueService.create_workflow_transition(
+        project=project,
+        from_status_id=data.from_status_id,
+        to_status_id=data.to_status_id,
+        name=data.name,
+        allowed_roles=data.allowed_roles,
+    )
+
+    return 201, transition
+
+
+# Saved Filters endpoints
+
+
+@router.get(
+    "/{key}/filters",
+    response={200: list[SavedFilterSchema], 403: ErrorSchema, 404: ErrorSchema},
+)
+def list_saved_filters(request, key: str):
+    """Get saved filters for project (own + shared)."""
+    project = ProjectService.get_project_by_key(key)
+
+    if not project:
+        return 404, {"detail": "Проект не найден"}
+
+    if not ProjectService.is_member(project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    filters = ProjectService.get_saved_filters(project, request.auth)
+    return 200, list(filters)
+
+
+@router.post(
+    "/{key}/filters",
+    response={
+        201: SavedFilterSchema,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def create_saved_filter(request, key: str, data: SavedFilterCreateSchema):
+    """Create a new saved filter."""
+    project = ProjectService.get_project_by_key(key)
+
+    if not project:
+        return 404, {"detail": "Проект не найден"}
+
+    if not ProjectService.is_member(project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if data.sort_order and data.sort_order not in [c.value for c in SortOrder]:
+        return 400, {"detail": "Недопустимый порядок сортировки"}
+
+    saved_filter = ProjectService.create_saved_filter(
+        project=project,
+        user=request.auth,
+        name=data.name,
+        filters=data.filters,
+        columns=data.columns,
+        sort_by=data.sort_by,
+        sort_order=data.sort_order,
+        is_shared=data.is_shared,
+    )
+
+    return 201, saved_filter
+
+
+@router.get(
+    "/filters/{filter_id}",
+    response={200: SavedFilterSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def get_saved_filter(request, filter_id: UUID):
+    """Get saved filter by ID."""
+    saved_filter = ProjectService.get_saved_filter_by_id(filter_id)
+
+    if not saved_filter:
+        return 404, {"detail": "Фильтр не найден"}
+
+    if not ProjectService.is_member(saved_filter.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if saved_filter.user != request.auth and not saved_filter.is_shared:
+        return 403, {"detail": "Нет доступа к фильтру"}
+
+    return 200, saved_filter
+
+
+@router.patch(
+    "/filters/{filter_id}",
+    response={
+        200: SavedFilterSchema,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def update_saved_filter(request, filter_id: UUID, data: SavedFilterUpdateSchema):
+    """Update saved filter (owner only)."""
+    saved_filter = ProjectService.get_saved_filter_by_id(filter_id)
+
+    if not saved_filter:
+        return 404, {"detail": "Фильтр не найден"}
+
+    if saved_filter.user != request.auth:
+        return 403, {"detail": "Только автор может редактировать фильтр"}
+
+    if data.sort_order and data.sort_order not in [c.value for c in SortOrder]:
+        return 400, {"detail": "Недопустимый порядок сортировки"}
+
+    update_data = data.dict(exclude_unset=True)
+    saved_filter = ProjectService.update_saved_filter(saved_filter, **update_data)
+
+    return 200, saved_filter
+
+
+@router.delete(
+    "/filters/{filter_id}",
+    response={200: MessageSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def delete_saved_filter(request, filter_id: UUID):
+    """Delete saved filter (owner only)."""
+    saved_filter = ProjectService.get_saved_filter_by_id(filter_id)
+
+    if not saved_filter:
+        return 404, {"detail": "Фильтр не найден"}
+
+    if saved_filter.user != request.auth:
+        return 403, {"detail": "Только автор может удалить фильтр"}
+
+    ProjectService.delete_saved_filter(saved_filter)
+
+    return 200, {"message": "Фильтр удалён"}
+
+
+@router.get(
+    "/filters/{filter_id}/issues",
+    response={200: PaginatedIssueListSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def get_filter_issues(
+    request,
+    filter_id: UUID,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """Get issues matching saved filter criteria."""
+    saved_filter = ProjectService.get_saved_filter_by_id(filter_id)
+
+    if not saved_filter:
+        return 404, {"detail": "Фильтр не найден"}
+
+    if not ProjectService.is_member(saved_filter.project, request.auth):
+        return 403, {"detail": "Нет доступа к проекту"}
+
+    if saved_filter.user != request.auth and not saved_filter.is_shared:
+        return 403, {"detail": "Нет доступа к фильтру"}
+
+    queryset = Issue.objects.filter(project=saved_filter.project).select_related(
+        "issue_type", "status", "assignee", "reporter"
+    )
+
+    filters = saved_filter.filters or {}
+    if filters.get("status_id"):
+        queryset = queryset.filter(status_id=filters["status_id"])
+    if filters.get("issue_type_id"):
+        queryset = queryset.filter(issue_type_id=filters["issue_type_id"])
+    if filters.get("assignee_id"):
+        queryset = queryset.filter(assignee_id=filters["assignee_id"])
+    if filters.get("priority"):
+        queryset = queryset.filter(priority=filters["priority"])
+    if filters.get("epic_id"):
+        queryset = queryset.filter(epic_id=filters["epic_id"])
+    if filters.get("search"):
+        search = filters["search"]
+        queryset = queryset.filter(
+            Q(title__icontains=search) | Q(key__icontains=search)
+        )
+
+    total = queryset.count()
+
+    if saved_filter.sort_by:
+        order_prefix = "-" if saved_filter.sort_order == SortOrder.DESC else ""
+        queryset = queryset.order_by(f"{order_prefix}{saved_filter.sort_by}")
+    else:
+        queryset = queryset.order_by("-created_at")
+
+    issues = list(queryset[offset : offset + limit])
+
+    return 200, {
+        "items": [IssueListSchema.from_orm(issue) for issue in issues],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }

@@ -8,6 +8,7 @@ from ninja import Router, Schema
 from apps.users.auth import AuthBearer
 from apps.users.models import User
 from apps.users.schemas import ErrorSchema, MessageSchema, UserSchema
+from apps.users.services import NotificationService
 
 router = Router(auth=AuthBearer())
 
@@ -138,3 +139,38 @@ def change_password(request, user_id: int, data: PasswordChangeSchema):
     user.save()
 
     return 200, {"message": "Пароль успешно изменён"}
+
+
+class NotificationPreferencesSchema(Schema):
+    notify_on_assign: bool
+    notify_on_mention: bool
+    notify_on_comment: bool
+    notify_on_status_change: bool
+    email_frequency: str
+
+
+class NotificationPreferencesUpdateSchema(Schema):
+    notify_on_assign: bool | None = None
+    notify_on_mention: bool | None = None
+    notify_on_comment: bool | None = None
+    notify_on_status_change: bool | None = None
+    email_frequency: str | None = None
+
+
+@router.get("/me/notification-preferences", response=NotificationPreferencesSchema)
+def get_notification_preferences(request):
+    prefs = NotificationService.get_or_create_preferences(request.auth)
+    return prefs
+
+
+@router.patch("/me/notification-preferences", response=NotificationPreferencesSchema)
+def update_notification_preferences(request, data: NotificationPreferencesUpdateSchema):
+    prefs = NotificationService.update_preferences(
+        request.auth,
+        notify_on_assign=data.notify_on_assign,
+        notify_on_mention=data.notify_on_mention,
+        notify_on_comment=data.notify_on_comment,
+        notify_on_status_change=data.notify_on_status_change,
+        email_frequency=data.email_frequency,
+    )
+    return prefs

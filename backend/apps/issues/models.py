@@ -284,3 +284,81 @@ class IssueComment(models.Model):
 
     def __str__(self):
         return f"Comment on {self.issue.key} by {self.author}"
+
+
+class ActivityAction(models.TextChoices):
+    CREATED = "created", "Создана"
+    UPDATED = "updated", "Обновлена"
+    STATUS_CHANGED = "status_changed", "Изменён статус"
+    ASSIGNED = "assigned", "Назначен исполнитель"
+    COMMENTED = "commented", "Добавлен комментарий"
+    SPRINT_CHANGED = "sprint_changed", "Изменён спринт"
+    TYPE_CHANGED = "type_changed", "Изменён тип"
+    PRIORITY_CHANGED = "priority_changed", "Изменён приоритет"
+
+
+class IssueActivity(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    issue = models.ForeignKey(
+        Issue,
+        on_delete=models.CASCADE,
+        related_name="activities",
+        verbose_name="Задача",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="issue_activities",
+        verbose_name="Пользователь",
+        null=True,
+    )
+    action = models.CharField(
+        "Действие",
+        max_length=20,
+        choices=ActivityAction.choices,
+    )
+    field_name = models.CharField("Поле", max_length=100, blank=True)
+    old_value = models.JSONField("Старое значение", null=True, blank=True)
+    new_value = models.JSONField("Новое значение", null=True, blank=True)
+    created_at = models.DateTimeField("Создано", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Активность задачи"
+        verbose_name_plural = "Активность задач"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["issue", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.issue.key}: {self.get_action_display()}"
+
+
+class IssueAttachment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    issue = models.ForeignKey(
+        Issue,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+        verbose_name="Задача",
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_attachments",
+        verbose_name="Загрузил",
+        null=True,
+    )
+    file = models.FileField("Файл", upload_to="attachments/%Y/%m/")
+    filename = models.CharField("Имя файла", max_length=255)
+    file_size = models.PositiveIntegerField("Размер (байт)")
+    content_type = models.CharField("MIME-тип", max_length=100)
+    created_at = models.DateTimeField("Загружен", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Вложение"
+        verbose_name_plural = "Вложения"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.filename} ({self.issue.key})"

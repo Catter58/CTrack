@@ -37,6 +37,25 @@ export interface Comment {
   updated_at: string;
 }
 
+export interface Activity {
+  id: string;
+  user: User | null;
+  action: string;
+  field_name: string;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface Attachment {
+  id: string;
+  filename: string;
+  file_size: number;
+  content_type: string;
+  uploaded_by: User;
+  created_at: string;
+}
+
 export interface WorkflowTransition {
   id: string;
   from_status: Status;
@@ -85,6 +104,8 @@ interface IssueState {
   comments: Comment[];
   transitions: WorkflowTransition[];
   children: ChildIssue[];
+  activities: Activity[];
+  attachments: Attachment[];
   isLoading: boolean;
   error: string | null;
 }
@@ -95,6 +116,8 @@ function createIssueStore() {
     comments: [],
     transitions: [],
     children: [],
+    activities: [],
+    attachments: [],
     isLoading: false,
     error: null,
   });
@@ -156,6 +179,67 @@ function createIssueStore() {
       }
     },
 
+    async loadActivities(issueKey: string) {
+      try {
+        const activities = await api.get<Activity[]>(
+          `/api/issues/${issueKey}/activity`,
+        );
+        update((s) => ({ ...s, activities }));
+        return activities;
+      } catch (err) {
+        console.error("Failed to load activities:", err);
+        return [];
+      }
+    },
+
+    async loadAttachments(issueKey: string) {
+      try {
+        const attachments = await api.get<Attachment[]>(
+          `/api/issues/${issueKey}/attachments`,
+        );
+        update((s) => ({ ...s, attachments }));
+        return attachments;
+      } catch (err) {
+        console.error("Failed to load attachments:", err);
+        return [];
+      }
+    },
+
+    async uploadAttachment(
+      issueKey: string,
+      file: File,
+    ): Promise<Attachment | null> {
+      try {
+        const attachment = await api.uploadFile<Attachment>(
+          `/api/issues/${issueKey}/attachments`,
+          file,
+        );
+        update((s) => ({ ...s, attachments: [...s.attachments, attachment] }));
+        return attachment;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to upload attachment";
+        update((s) => ({ ...s, error: message }));
+        return null;
+      }
+    },
+
+    async deleteAttachment(attachmentId: string): Promise<boolean> {
+      try {
+        await api.delete(`/api/attachments/${attachmentId}`);
+        update((s) => ({
+          ...s,
+          attachments: s.attachments.filter((a) => a.id !== attachmentId),
+        }));
+        return true;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete attachment";
+        update((s) => ({ ...s, error: message }));
+        return false;
+      }
+    },
+
     async quickCompleteChild(childKey: string, doneStatusId: string) {
       try {
         await api.patch(`/api/issues/${childKey}`, {
@@ -194,6 +278,7 @@ function createIssueStore() {
         assignee_id?: number | null;
         story_points?: number | null;
         due_date?: string | null;
+        custom_fields?: Record<string, unknown>;
       },
     ): Promise<IssueDetail | null> {
       update((s) => ({ ...s, isLoading: true, error: null }));
@@ -234,6 +319,43 @@ function createIssueStore() {
       }
     },
 
+    async updateComment(
+      commentId: string,
+      content: string,
+    ): Promise<Comment | null> {
+      try {
+        const comment = await api.patch<Comment>(`/api/comments/${commentId}`, {
+          content,
+        });
+        update((s) => ({
+          ...s,
+          comments: s.comments.map((c) => (c.id === commentId ? comment : c)),
+        }));
+        return comment;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to update comment";
+        update((s) => ({ ...s, error: message }));
+        return null;
+      }
+    },
+
+    async deleteComment(commentId: string): Promise<boolean> {
+      try {
+        await api.delete(`/api/comments/${commentId}`);
+        update((s) => ({
+          ...s,
+          comments: s.comments.filter((c) => c.id !== commentId),
+        }));
+        return true;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete comment";
+        update((s) => ({ ...s, error: message }));
+        return false;
+      }
+    },
+
     async transitionStatus(
       issueKey: string,
       statusId: string,
@@ -264,6 +386,8 @@ function createIssueStore() {
         comments: [],
         transitions: [],
         children: [],
+        activities: [],
+        attachments: [],
         isLoading: false,
         error: null,
       });
@@ -281,6 +405,8 @@ export const currentIssue = derived(issue, ($s) => $s.issue);
 export const issueComments = derived(issue, ($s) => $s.comments);
 export const issueTransitions = derived(issue, ($s) => $s.transitions);
 export const issueChildren = derived(issue, ($s) => $s.children);
+export const issueActivities = derived(issue, ($s) => $s.activities);
+export const issueAttachments = derived(issue, ($s) => $s.attachments);
 export const issueLoading = derived(issue, ($s) => $s.isLoading);
 export const issueError = derived(issue, ($s) => $s.error);
 

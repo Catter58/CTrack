@@ -103,6 +103,11 @@ class ApiClient {
       throw new Error(error.detail || `HTTP ${response.status}`);
     }
 
+    // Handle 204 No Content responses
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     return response.json();
   }
 
@@ -159,6 +164,115 @@ class ApiClient {
       method: "DELETE",
       params: stringParams,
     });
+  }
+
+  /**
+   * Upload a file using multipart/form-data
+   * Does not set Content-Type header (browser sets it automatically with boundary)
+   */
+  async uploadFile<T>(
+    endpoint: string,
+    file: File,
+    fieldName: string = "file",
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const formData = new FormData();
+    formData.append(fieldName, file);
+
+    const headers: HeadersInit = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (response.status === 401 && this.refreshCallback) {
+      const newToken = await this.tryRefresh();
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`;
+        const retryResponse = await fetch(url, {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        if (!retryResponse.ok) {
+          const error = await retryResponse
+            .json()
+            .catch(() => ({ detail: "Ошибка сервера" }));
+          throw new Error(error.detail || `HTTP ${retryResponse.status}`);
+        }
+
+        return retryResponse.json();
+      } else {
+        this.logoutCallback?.();
+        throw new Error("Сессия истекла. Пожалуйста, войдите снова.");
+      }
+    }
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Ошибка сервера" }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Download a file with authentication
+   * Fetches the file with auth headers and triggers browser download
+   */
+  async downloadFile(endpoint: string, filename: string): Promise<void> {
+    const url = `${this.baseUrl}${endpoint}`;
+
+    const headers: HeadersInit = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    let response = await fetch(url, {
+      method: "GET",
+      headers,
+    });
+
+    // Handle 401 with token refresh
+    if (response.status === 401 && this.refreshCallback) {
+      const newToken = await this.tryRefresh();
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`;
+        response = await fetch(url, {
+          method: "GET",
+          headers,
+        });
+      } else {
+        this.logoutCallback?.();
+        throw new Error("Сессия истекла. Пожалуйста, войдите снова.");
+      }
+    }
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Ошибка скачивания файла" }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    // Create blob and trigger download
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
   }
 }
 

@@ -87,6 +87,7 @@ class IssueCreateSchema(Schema):
     epic_id: UUID | None = None
     story_points: int | None = None
     due_date: date | None = None
+    custom_fields: dict[str, Any] | None = None
 
 
 class IssueUpdateSchema(Schema):
@@ -102,6 +103,7 @@ class IssueUpdateSchema(Schema):
     epic_id: UUID | None = None
     story_points: int | None = None
     due_date: date | None = None
+    custom_fields: dict[str, Any] | None = None
 
 
 class IssueSchema(Schema):
@@ -149,20 +151,40 @@ class IssueListSchema(Schema):
     assignee: UserSchema | None
 
 
-class CommentCreateSchema(Schema):
-    """Schema for creating a comment."""
+class IssuePaginatedResponseSchema(Schema):
+    """Paginated response for issues list."""
 
+    items: list[IssueListSchema]
+    total: int
+    page: int
+    page_size: int
+
+
+class CommentCreateSchema(Schema):
+    content: str
+
+
+class CommentUpdateSchema(Schema):
     content: str
 
 
 class CommentSchema(Schema):
-    """Schema for comment response."""
-
     id: UUID
     author: UserSchema
     content: str
+    mentions: list[str] = []
     created_at: datetime
     updated_at: datetime
+
+
+class ActivitySchema(Schema):
+    id: UUID
+    user: UserSchema | None
+    action: str
+    field_name: str
+    old_value: dict | None
+    new_value: dict | None
+    created_at: datetime
 
 
 class WorkflowTransitionSchema(Schema):
@@ -208,3 +230,30 @@ class EpicSchema(Schema):
     completed_issues: int
     total_story_points: int
     completed_story_points: int
+
+
+class WorkflowTransitionCreateSchema(Schema):
+    """Schema for creating a workflow transition."""
+
+    from_status_id: UUID
+    to_status_id: UUID
+    name: str = ""
+    allowed_roles: list[str] = []
+
+
+class WorkflowTransitionUpdateSchema(Schema):
+    """Schema for updating a workflow transition."""
+
+    name: str | None = None
+    allowed_roles: list[str] | None = None
+
+
+class AttachmentSchema(Schema):
+    """Schema for issue attachment."""
+
+    id: UUID
+    filename: str
+    file_size: int
+    content_type: str
+    uploaded_by: UserSchema | None
+    created_at: datetime

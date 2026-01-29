@@ -10,7 +10,7 @@ from django.db.models import QuerySet
 
 from apps.users.models import User
 
-from .models import Project, ProjectMembership, ProjectRole
+from .models import Project, ProjectMembership, ProjectRole, SavedFilter
 
 
 class ProjectService:
@@ -163,8 +163,16 @@ class ProjectService:
 
     @staticmethod
     def is_member(project: Project, user: User) -> bool:
-        """Check if user is project member."""
         return ProjectMembership.objects.filter(project=project, user=user).exists()
+
+    @staticmethod
+    def is_admin(project: Project, user: User) -> bool:
+        return (
+            ProjectMembership.objects.filter(
+                project=project, user=user, role="admin"
+            ).exists()
+            or project.owner == user
+        )
 
     @staticmethod
     def get_members(project: Project) -> QuerySet[ProjectMembership]:
@@ -230,3 +238,55 @@ class ProjectService:
             project=project, user=user
         ).first()
         return membership is not None and membership.is_admin
+
+    # SavedFilter methods
+
+    @staticmethod
+    def create_saved_filter(
+        project: Project,
+        user: User,
+        name: str,
+        filters: dict[str, Any] | None = None,
+        columns: list[str] | None = None,
+        sort_by: str = "",
+        sort_order: str = "asc",
+        is_shared: bool = False,
+    ) -> SavedFilter:
+        return SavedFilter.objects.create(
+            project=project,
+            user=user,
+            name=name,
+            filters=filters or {},
+            columns=columns or [],
+            sort_by=sort_by,
+            sort_order=sort_order,
+            is_shared=is_shared,
+        )
+
+    @staticmethod
+    def get_saved_filter_by_id(filter_id: UUID) -> SavedFilter | None:
+        return (
+            SavedFilter.objects.filter(id=filter_id)
+            .select_related("project", "user")
+            .first()
+        )
+
+    @staticmethod
+    def get_saved_filters(project: Project, user: User) -> QuerySet[SavedFilter]:
+        from django.db.models import Q
+
+        return SavedFilter.objects.filter(
+            Q(project=project) & (Q(user=user) | Q(is_shared=True))
+        ).order_by("-created_at")
+
+    @staticmethod
+    def update_saved_filter(saved_filter: SavedFilter, **kwargs) -> SavedFilter:
+        for field, value in kwargs.items():
+            if value is not None:
+                setattr(saved_filter, field, value)
+        saved_filter.save()
+        return saved_filter
+
+    @staticmethod
+    def delete_saved_filter(saved_filter: SavedFilter) -> None:
+        saved_filter.delete()

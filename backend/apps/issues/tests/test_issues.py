@@ -191,8 +191,11 @@ class TestIssueList:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["key"] == issue.key
+        assert data["total"] == 1
+        assert data["page"] == 1
+        assert data["page_size"] == 20
+        assert len(data["items"]) == 1
+        assert data["items"][0]["key"] == issue.key
 
 
 @pytest.mark.django_db

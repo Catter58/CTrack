@@ -17,26 +17,43 @@
 		DatePickerInput,
 		Modal,
 		InlineNotification,
-		Loading
+		Loading,
+		Checkbox,
+		MultiSelect
 	} from 'carbon-components-svelte';
-	import { Edit, TrashCan, Send, ArrowRight, Calendar, User } from 'carbon-icons-svelte';
+	import { Edit, TrashCan, Send, ArrowRight, Calendar, User, Link } from 'carbon-icons-svelte';
 	import {
 		issue,
 		currentIssue,
 		issueComments,
 		issueTransitions,
 		issueChildren,
+		issueActivities,
+		issueAttachments,
 		issueLoading,
 		issueError,
 		priorityLabels,
 		priorityColors
 	} from '$lib/stores/issue';
+	import { auth } from '$lib/stores/auth';
 	import { projects, projectMembers } from '$lib/stores/projects';
 	import { board, statuses } from '$lib/stores/board';
 	import api from '$lib/api/client';
 	import RichEditor from '$lib/components/RichEditor.svelte';
 	import RichContent from '$lib/components/RichContent.svelte';
-	import { SubtasksList } from '$lib/components/issues';
+	import { ActivityFeed, AttachmentsList, AttachmentUploader, SubtasksList } from '$lib/components/issues';
+
+	// Custom field definition type
+	interface CustomFieldDefinition {
+		id: string;
+		name: string;
+		field_key: string;
+		field_type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox' | 'url';
+		options: string[];
+		is_required: boolean;
+		default_value: unknown;
+		description: string;
+	}
 
 	const issueKey = $page.params.key!;
 
@@ -51,9 +68,20 @@
 		due_date: null as string | null
 	});
 
+	// Custom fields
+	let customFieldDefinitions = $state<CustomFieldDefinition[]>([]);
+	let customFieldsForm = $state<Record<string, unknown>>({});
+
 	// Comment
 	let newComment = $state('');
 	let isAddingComment = $state(false);
+
+	// Comment edit/delete state
+	let editingCommentId = $state<string | null>(null);
+	let editingCommentContent = $state('');
+	let isSavingComment = $state(false);
+	let deletingCommentId = $state<string | null>(null);
+	let isDeletingComment = $state(false);
 
 	// Delete modal
 	let showDeleteModal = $state(false);
@@ -64,15 +92,34 @@
 		$statuses.find((s) => s.category === 'done')?.id ?? null
 	);
 
+	// Load custom field definitions for the issue type
+	async function loadCustomFieldDefinitions(projectKey: string, issueTypeId: string) {
+		try {
+			const definitions = await api.get<CustomFieldDefinition[]>(
+				`/api/projects/${projectKey}/custom-fields/for-type/${issueTypeId}`
+			);
+			customFieldDefinitions = definitions;
+		} catch (err) {
+			console.error('Failed to load custom field definitions:', err);
+			customFieldDefinitions = [];
+		}
+	}
+
 	onMount(async () => {
 		const projectKey = issueKey?.split('-')[0];
+		const loadedIssue = await issue.load(issueKey);
+
 		await Promise.all([
-			issue.load(issueKey),
 			issue.loadComments(issueKey),
 			issue.loadTransitions(issueKey),
 			issue.loadChildren(issueKey),
+			issue.loadActivities(issueKey),
+			issue.loadAttachments(issueKey),
 			projectKey ? projects.loadMembers(projectKey) : Promise.resolve(),
-			projectKey ? board.loadStatuses(projectKey) : Promise.resolve()
+			projectKey ? board.loadStatuses(projectKey) : Promise.resolve(),
+			loadedIssue && projectKey
+				? loadCustomFieldDefinitions(projectKey, loadedIssue.issue_type.id)
+				: Promise.resolve()
 		]);
 	});
 
@@ -90,6 +137,8 @@
 				assignee_id: $currentIssue.assignee?.id ?? null,
 				due_date: $currentIssue.due_date
 			};
+			// Initialize custom fields form with current values
+			customFieldsForm = { ...$currentIssue.custom_fields };
 			isEditing = true;
 		}
 	}
@@ -103,7 +152,8 @@
 			priority: editForm.priority,
 			story_points: editForm.story_points,
 			assignee_id: editForm.assignee_id,
-			due_date: editForm.due_date
+			due_date: editForm.due_date,
+			custom_fields: customFieldsForm
 		});
 
 		if (result) {
@@ -128,6 +178,45 @@
 			newComment = '';
 		}
 		isAddingComment = false;
+	}
+
+	function startEditComment(commentId: string, content: string) {
+		editingCommentId = commentId;
+		editingCommentContent = content;
+	}
+
+	function cancelEditComment() {
+		editingCommentId = null;
+		editingCommentContent = '';
+	}
+
+	async function saveEditComment() {
+		if (!editingCommentId || !editingCommentContent.trim()) return;
+
+		isSavingComment = true;
+		const result = await issue.updateComment(editingCommentId, editingCommentContent.trim());
+		if (result) {
+			editingCommentId = null;
+			editingCommentContent = '';
+		}
+		isSavingComment = false;
+	}
+
+	function confirmDeleteComment(commentId: string) {
+		deletingCommentId = commentId;
+	}
+
+	function cancelDeleteComment() {
+		deletingCommentId = null;
+	}
+
+	async function handleDeleteComment() {
+		if (!deletingCommentId) return;
+
+		isDeletingComment = true;
+		await issue.deleteComment(deletingCommentId);
+		deletingCommentId = null;
+		isDeletingComment = false;
 	}
 
 	async function handleDelete() {
@@ -183,6 +272,60 @@
 			text: m.full_name || m.username
 		}))
 	]);
+
+	// Custom field display helpers
+	function getCustomFieldDisplayValue(field: CustomFieldDefinition, value: unknown): string {
+		if (value === null || value === undefined || value === '') {
+			switch (field.field_type) {
+				case 'text':
+				case 'textarea':
+					return 'Не указано';
+				case 'select':
+				case 'multiselect':
+					return 'Не выбрано';
+				case 'number':
+				case 'date':
+				case 'url':
+					return '—';
+				case 'checkbox':
+					return '';
+				default:
+					return '—';
+			}
+		}
+
+		switch (field.field_type) {
+			case 'date':
+				return formatDateShort(value as string);
+			case 'multiselect':
+				return Array.isArray(value) ? value.join(', ') : String(value);
+			case 'checkbox':
+				return '';
+			default:
+				return String(value);
+		}
+	}
+
+	function isValidUrl(value: unknown): boolean {
+		if (typeof value !== 'string' || !value) return false;
+		try {
+			new URL(value);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	function handleCustomFieldInput(fieldKey: string, event: Event) {
+		const target = event.target as HTMLInputElement | HTMLTextAreaElement;
+		customFieldsForm[fieldKey] = target.value;
+	}
+
+	function handleCustomFieldNumberInput(fieldKey: string, event: Event) {
+		const target = event.target as HTMLInputElement;
+		const val = target.value;
+		customFieldsForm[fieldKey] = val ? parseFloat(val) : null;
+	}
 </script>
 
 <svelte:head>
@@ -258,6 +401,19 @@
 					{/if}
 				</section>
 
+				<!-- Attachments Section -->
+				<section class="attachments-section">
+					<h3>Вложения ({$issueAttachments.length})</h3>
+					<AttachmentUploader
+						onUpload={(file) => issue.uploadAttachment(issueKey, file)}
+					/>
+					<AttachmentsList
+						attachments={$issueAttachments}
+						onDelete={(id) => issue.deleteAttachment(id)}
+						canDelete={(attachment) => $auth.user?.id === attachment.uploaded_by.id}
+					/>
+				</section>
+
 				{#if isEditing}
 					<div class="edit-actions">
 						<Button kind="secondary" on:click={cancelEdit}>Отмена</Button>
@@ -300,18 +456,90 @@
 						{#each $issueComments as comment (comment.id)}
 							<div class="comment">
 								<div class="comment-header">
-									<span class="comment-author">
-										{formatUserName(comment.author)}
-									</span>
-									<span class="comment-date">{formatDate(comment.created_at)}</span>
+									<div class="comment-meta">
+										<span class="comment-author">
+											{formatUserName(comment.author)}
+										</span>
+										<span class="comment-date">{formatDate(comment.created_at)}</span>
+									</div>
+									{#if $auth.user?.id === comment.author.id && editingCommentId !== comment.id}
+										<div class="comment-actions">
+											<Button
+												kind="ghost"
+												size="small"
+												icon={Edit}
+												iconDescription="Редактировать"
+												on:click={() => startEditComment(comment.id, comment.content)}
+											/>
+											<Button
+												kind="danger-ghost"
+												size="small"
+												icon={TrashCan}
+												iconDescription="Удалить"
+												on:click={() => confirmDeleteComment(comment.id)}
+											/>
+										</div>
+									{/if}
 								</div>
-								<p class="comment-content">{comment.content}</p>
+								{#if editingCommentId === comment.id}
+									<div class="comment-edit">
+										<TextArea
+											bind:value={editingCommentContent}
+											rows={3}
+											disabled={isSavingComment}
+										/>
+										<div class="comment-edit-actions">
+											<Button
+												kind="secondary"
+												size="small"
+												on:click={cancelEditComment}
+												disabled={isSavingComment}
+											>
+												Отмена
+											</Button>
+											<Button
+												size="small"
+												on:click={saveEditComment}
+												disabled={!editingCommentContent.trim() || isSavingComment}
+											>
+												Сохранить
+											</Button>
+										</div>
+									</div>
+								{:else if deletingCommentId === comment.id}
+									<div class="comment-delete-confirm">
+										<span>Удалить комментарий?</span>
+										<div class="comment-delete-actions">
+											<Button
+												kind="secondary"
+												size="small"
+												on:click={cancelDeleteComment}
+												disabled={isDeletingComment}
+											>
+												Отмена
+											</Button>
+											<Button
+												kind="danger"
+												size="small"
+												on:click={handleDeleteComment}
+												disabled={isDeletingComment}
+											>
+												Удалить
+											</Button>
+										</div>
+									</div>
+								{:else}
+									<p class="comment-content">{comment.content}</p>
+								{/if}
 							</div>
 						{:else}
 							<p class="no-comments">Комментариев пока нет</p>
 						{/each}
 					</div>
 				</section>
+
+				<!-- Activity Feed Section -->
+				<ActivityFeed activities={$issueActivities} />
 			</main>
 
 			<!-- Sidebar -->
@@ -463,6 +691,119 @@
 						</div>
 					</div>
 				</Tile>
+
+				{#if customFieldDefinitions.length > 0}
+					<Tile>
+						<h3>Кастомные поля</h3>
+						<div class="details-list">
+							{#each customFieldDefinitions as field (field.id)}
+								{@const fieldValue = $currentIssue.custom_fields[field.field_key]}
+								{@const editValue = customFieldsForm[field.field_key]}
+								<div class="details-row">
+									<span class="details-label">{field.name}</span>
+									<div class="details-value">
+										{#if isEditing}
+											{#if field.field_type === 'text'}
+												<TextInput
+													value={editValue as string ?? ''}
+													size="sm"
+													hideLabel
+													on:input={(e) => handleCustomFieldInput(field.field_key, e)}
+												/>
+											{:else if field.field_type === 'textarea'}
+												<TextArea
+													value={editValue as string ?? ''}
+													rows={2}
+													hideLabel
+													on:input={(e) => handleCustomFieldInput(field.field_key, e)}
+												/>
+											{:else if field.field_type === 'number'}
+												<TextInput
+													value={editValue as string ?? ''}
+													type="number"
+													size="sm"
+													hideLabel
+													on:input={(e) => handleCustomFieldNumberInput(field.field_key, e)}
+												/>
+											{:else if field.field_type === 'date'}
+												<DatePicker
+													datePickerType="single"
+													dateFormat="d.m.Y"
+													value={editValue ? new Date(editValue as string).toLocaleDateString('ru-RU') : ''}
+													on:change={(e) => {
+														const detail = e.detail;
+														if (typeof detail === 'object' && detail !== null && 'dateStr' in detail) {
+															const dateStr = detail.dateStr;
+															if (typeof dateStr === 'string' && dateStr) {
+																const parts = dateStr.split('.');
+																if (parts.length === 3) {
+																	customFieldsForm[field.field_key] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+																}
+															} else {
+																customFieldsForm[field.field_key] = null;
+															}
+														}
+													}}
+												>
+													<DatePickerInput placeholder="дд.мм.гггг" size="sm" />
+												</DatePicker>
+											{:else if field.field_type === 'select'}
+												<Dropdown
+													size="sm"
+													selectedId={editValue as string ?? ''}
+													items={[
+														{ id: '', text: 'Не выбрано' },
+														...field.options.map((opt) => ({ id: opt, text: opt }))
+													]}
+													on:select={(e) => {
+														customFieldsForm[field.field_key] = e.detail.selectedId || null;
+													}}
+												/>
+											{:else if field.field_type === 'multiselect'}
+												<MultiSelect
+													size="sm"
+													selectedIds={Array.isArray(editValue) ? editValue : []}
+													items={field.options.map((opt) => ({ id: opt, text: opt }))}
+													on:select={(e) => {
+														customFieldsForm[field.field_key] = e.detail.selectedIds;
+													}}
+												/>
+											{:else if field.field_type === 'checkbox'}
+												<Checkbox
+													checked={editValue === true}
+													on:check={(e) => {
+														customFieldsForm[field.field_key] = e.detail;
+													}}
+												/>
+											{:else if field.field_type === 'url'}
+												<TextInput
+													value={editValue as string ?? ''}
+													size="sm"
+													hideLabel
+													placeholder="https://..."
+													on:input={(e) => handleCustomFieldInput(field.field_key, e)}
+												/>
+											{/if}
+										{:else}
+											{#if field.field_type === 'checkbox'}
+												<Checkbox checked={fieldValue === true} disabled />
+											{:else if field.field_type === 'url' && isValidUrl(fieldValue)}
+												<a href={fieldValue as string} target="_blank" rel="noopener noreferrer" class="url-link">
+													<Link size={16} />
+													{fieldValue}
+												</a>
+											{:else}
+												<span class={!fieldValue ? 'empty-value' : ''}>
+													{getCustomFieldDisplayValue(field, fieldValue)}
+												</span>
+											{/if}
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</Tile>
+				{/if}
 			</aside>
 		</div>
 	</div>
@@ -597,6 +938,14 @@
 		margin-bottom: 2rem;
 	}
 
+	.attachments-section {
+		margin-bottom: 2rem;
+	}
+
+	.attachments-section h3 {
+		margin-bottom: 1rem;
+	}
+
 	.comments-section {
 		border-top: 1px solid var(--cds-border-subtle);
 		padding-top: 2rem;
@@ -628,8 +977,15 @@
 	.comment-header {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
+		align-items: flex-start;
 		margin-bottom: 0.5rem;
+		gap: 0.5rem;
+	}
+
+	.comment-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
 	}
 
 	.comment-author {
@@ -641,9 +997,52 @@
 		color: var(--cds-text-secondary);
 	}
 
+	.comment-actions {
+		display: flex;
+		gap: 0.25rem;
+		flex-shrink: 0;
+	}
+
+	.comment-actions :global(.bx--btn--ghost) {
+		min-height: 1.5rem;
+		padding: 0.25rem;
+	}
+
 	.comment-content {
 		margin: 0;
 		white-space: pre-wrap;
+	}
+
+	.comment-edit {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.comment-edit-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: flex-end;
+	}
+
+	.comment-delete-confirm {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.5rem;
+		background: var(--cds-layer-02);
+		border-radius: 4px;
+	}
+
+	.comment-delete-confirm span {
+		color: var(--cds-text-secondary);
+		font-size: 0.875rem;
+	}
+
+	.comment-delete-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.no-comments {
@@ -744,6 +1143,31 @@
 	.not-found p {
 		color: var(--cds-text-secondary);
 		margin: 0 0 1rem;
+	}
+
+	/* Custom field styles */
+	.empty-value {
+		color: var(--cds-text-secondary);
+		font-style: italic;
+	}
+
+	.url-link {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--cds-link-primary);
+		text-decoration: none;
+		word-break: break-all;
+	}
+
+	.url-link:hover {
+		text-decoration: underline;
+	}
+
+	/* MultiSelect in sidebar */
+	.issue-sidebar :global(.bx--multi-select),
+	.issue-sidebar :global(.bx--text-area-wrapper) {
+		width: 100%;
 	}
 
 	@media (max-width: 900px) {

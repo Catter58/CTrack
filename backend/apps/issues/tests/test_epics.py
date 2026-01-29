@@ -253,10 +253,11 @@ class TestFilterIssuesByEpic:
         assert response.status_code == 200
         data = response.json()
         # 5 issues linked to the epic
-        assert len(data) == 5
+        assert data["total"] == 5
+        assert len(data["items"]) == 5
 
         # All should have the epic_id
-        for issue in data:
+        for issue in data["items"]:
             assert issue["epic_id"] == str(epic_with_issues.id)
 
     def test_issues_include_epic_id(

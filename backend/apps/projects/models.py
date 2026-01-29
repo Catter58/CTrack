@@ -104,3 +104,45 @@ class ProjectMembership(models.Model):
     def can_edit(self) -> bool:
         """Check if user can edit issues (not viewer)."""
         return self.role != ProjectRole.VIEWER
+
+
+class SortOrder(models.TextChoices):
+    ASC = "asc", "По возрастанию"
+    DESC = "desc", "По убыванию"
+
+
+class SavedFilter(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="saved_filters",
+        verbose_name="Проект",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_filters",
+        verbose_name="Автор",
+    )
+    name = models.CharField("Название", max_length=100)
+    filters = models.JSONField("Критерии фильтрации", default=dict)
+    columns = models.JSONField("Видимые колонки", default=list)
+    sort_by = models.CharField("Сортировка по", max_length=50, blank=True)
+    sort_order = models.CharField(
+        "Порядок сортировки",
+        max_length=4,
+        choices=SortOrder.choices,
+        default=SortOrder.ASC,
+    )
+    is_shared = models.BooleanField("Доступен команде", default=False)
+    created_at = models.DateTimeField("Создан", auto_now_add=True)
+    updated_at = models.DateTimeField("Обновлён", auto_now=True)
+
+    class Meta:
+        verbose_name = "Сохранённый фильтр"
+        verbose_name_plural = "Сохранённые фильтры"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.project.key})"

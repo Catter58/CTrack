@@ -5,7 +5,15 @@ Admin configuration for issues app.
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Issue, IssueComment, IssueType, Status, WorkflowTransition
+from .models import (
+    Issue,
+    IssueActivity,
+    IssueAttachment,
+    IssueComment,
+    IssueType,
+    Status,
+    WorkflowTransition,
+)
 
 
 @admin.register(IssueType)
@@ -96,3 +104,64 @@ class IssueCommentAdmin(admin.ModelAdmin):
     search_fields = ["content", "issue__key"]
     autocomplete_fields = ["issue", "author"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(IssueActivity)
+class IssueActivityAdmin(admin.ModelAdmin):
+    """Admin for IssueActivity model."""
+
+    list_display = [
+        "issue",
+        "user",
+        "action",
+        "field_name",
+        "old_value",
+        "new_value",
+        "created_at",
+    ]
+    list_filter = ["action", "field_name", "created_at"]
+    search_fields = ["issue__key", "user__username", "field_name"]
+    autocomplete_fields = ["issue", "user"]
+    readonly_fields = ["id", "created_at"]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (None, {"fields": ("id", "issue", "user", "action")}),
+        ("Изменение", {"fields": ("field_name", "old_value", "new_value")}),
+        ("Даты", {"fields": ("created_at",)}),
+    )
+
+
+@admin.register(IssueAttachment)
+class IssueAttachmentAdmin(admin.ModelAdmin):
+    """Admin for IssueAttachment model."""
+
+    list_display = [
+        "filename",
+        "issue",
+        "uploaded_by",
+        "file_size_display",
+        "content_type",
+        "created_at",
+    ]
+    list_filter = ["content_type", "created_at"]
+    search_fields = ["filename", "issue__key", "uploaded_by__username"]
+    autocomplete_fields = ["issue", "uploaded_by"]
+    readonly_fields = ["id", "file_size", "content_type", "created_at"]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (None, {"fields": ("id", "issue", "uploaded_by")}),
+        ("Файл", {"fields": ("file", "filename", "file_size", "content_type")}),
+        ("Даты", {"fields": ("created_at",)}),
+    )
+
+    @admin.display(description="Размер")
+    def file_size_display(self, obj):
+        """Display file size in human-readable format."""
+        if obj.file_size < 1024:
+            return f"{obj.file_size} B"
+        elif obj.file_size < 1024 * 1024:
+            return f"{obj.file_size / 1024:.1f} KB"
+        else:
+            return f"{obj.file_size / (1024 * 1024):.1f} MB"

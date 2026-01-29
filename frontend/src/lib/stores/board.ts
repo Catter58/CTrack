@@ -305,6 +305,7 @@ function createBoardStore() {
         due_date?: string;
         status_id?: string;
         epic_id?: string;
+        custom_fields?: Record<string, unknown>;
       },
     ) {
       try {
@@ -464,3 +465,8 @@ export const workflowTransitions = derived(
 );
 export const boardLoading = derived(board, ($b) => $b.isLoading);
 export const boardError = derived(board, ($b) => $b.error);
+
+// Flat list of all issues from all columns (for list view)
+export const flatIssuesList = derived(board, ($b) =>
+  $b.columns.flatMap((col) => col.issues),
+);

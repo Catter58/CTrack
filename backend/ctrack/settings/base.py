@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.issues",
     "apps.boards",
     "apps.sprints",
+    "apps.custom_fields",
 ]
 
 MIDDLEWARE = [
@@ -206,6 +207,21 @@ JWT_SECRET_KEY = env("JWT_SECRET_KEY", default=SECRET_KEY)
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = env.int("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", default=15)
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = env.int("JWT_REFRESH_TOKEN_EXPIRE_DAYS", default=7)
 JWT_ALGORITHM = "HS256"
+
+
+# Frontend URL for notifications
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
+# Email Settings
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = env("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="CTrack <noreply@ctrack.local>")
 
 
 # Logging

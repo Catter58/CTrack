@@ -7,18 +7,21 @@
 		Tile,
 		Loading,
 		InlineNotification,
-		Tag,
 		Modal,
 		TextInput,
+		TextArea,
+		NumberInput,
 		Select,
 		SelectItem,
 		Dropdown,
+		MultiSelect,
+		Checkbox,
 		DatePicker,
-		DatePickerInput
+		DatePickerInput,
+		OverflowMenu,
+		OverflowMenuItem
 	} from 'carbon-components-svelte';
-	import { Add, Settings, ChartColumn } from 'carbon-icons-svelte';
-	import { dndzone, type DndEvent } from 'svelte-dnd-action';
-	import { flip } from 'svelte/animate';
+	import { Add, Settings, ChartColumn, Report, Save } from 'carbon-icons-svelte';
 	import { projects, currentProject, projectsLoading, projectsError, projectMembers } from '$lib/stores/projects';
 	import {
 		board,
@@ -28,17 +31,37 @@
 		boardLoading,
 		boardError,
 		workflowTransitions,
-		type Issue,
-		type BoardColumn
+		flatIssuesList
 	} from '$lib/stores/board';
 	import { sprints, type SprintWithStats } from '$lib/stores/sprints';
+	import {
+		filtersStore,
+		savedFilters,
+		type FilterValues,
+		type CreateFilterData,
+		type SavedFilter
+	} from '$lib/stores/filters';
+	import { SaveFilterModal } from '$lib/components/filters';
 	import { epicsStore, epicsList } from '$lib/stores/epics';
 	import RichEditor from '$lib/components/RichEditor.svelte';
-	import { SprintHeader, IssueCard, BoardFilters, BoardSkeleton } from '$lib/components/board';
+	import { SprintHeader, BoardFilters, BoardSkeleton, BoardView, ListView, ViewSwitcher } from '$lib/components/board';
 	import { goto } from '$app/navigation';
 	import { toasts } from '$lib/stores/toast';
+	import api from '$lib/api/client';
 
 	const projectKey = $derived($page.params.key);
+
+	// Custom field definition type
+	interface CustomFieldDefinition {
+		id: string;
+		name: string;
+		field_key: string;
+		field_type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox' | 'url';
+		options: string[];
+		is_required: boolean;
+		default_value: unknown;
+		description: string;
+	}
 
 	// Board filters from URL
 	interface BoardFilterValues {
@@ -48,6 +71,12 @@
 		search?: string;
 		sprint_id?: string;
 	}
+
+	// Current view from URL (default: board)
+	let currentView = $derived.by<'board' | 'list'>(() => {
+		const view = $page.url.searchParams.get('view');
+		return view === 'list' ? 'list' : 'board';
+	});
 
 	let boardFilters = $derived.by<BoardFilterValues>(() => {
 		const params = $page.url.searchParams;
@@ -74,6 +103,16 @@
 		}
 		return f;
 	});
+
+	function handleViewChange(view: 'board' | 'list') {
+		const url = new URL($page.url);
+		if (view === 'board') {
+			url.searchParams.delete('view');
+		} else {
+			url.searchParams.set('view', view);
+		}
+		goto(url.toString(), { replaceState: true, noScroll: true });
+	}
 
 	function handleFilterChange(filters: BoardFilterValues) {
 		const url = new URL($page.url);
@@ -124,6 +163,14 @@
 	let isCreating = $state(false);
 	let createError = $state<string | null>(null);
 
+	// Saved filters state
+	let showSaveFilterModal = $state(false);
+	let selectedFilterId = $state<string>('');
+
+	// Custom fields for create modal
+	let customFieldDefinitions = $state<CustomFieldDefinition[]>([]);
+	let customFieldsForm = $state<Record<string, unknown>>({});
+
 	// Member dropdown items
 	let memberItems = $derived([
 		{ id: 'none', text: 'Не назначен' },
@@ -142,66 +189,43 @@
 		}))
 	]);
 
-	// Local state for columns - required for svelte-dnd-action to work properly
-	// We sync from the store and manage locally during drag operations
-	let localColumns = $state<BoardColumn[]>([]);
+	// Members for board/list components
+	let members = $derived(
+		($projectMembers || []).filter((m) => m && m.user_id).map((m) => ({
+			id: m.user_id,
+			username: m.username,
+			full_name: m.full_name
+		}))
+	);
 
-	// Sync local columns when store changes (but not during drag)
-	let draggedIssueId = $state<string | null>(null);
-	const flipDurationMs = 200;
+	// Check if any filters are active
+	let hasActiveFilters = $derived(
+		boardFilters.assignee_id !== undefined ||
+		boardFilters.type_id !== undefined ||
+		boardFilters.priority !== undefined ||
+		boardFilters.search !== undefined ||
+		boardFilters.sprint_id !== undefined
+	);
 
+	// Clear saved filter selection when filters are cleared
 	$effect(() => {
-		// Only sync when not dragging to avoid conflicts
-		if (!draggedIssueId && $boardColumns.length > 0) {
-			localColumns = $boardColumns.map(col => ({
-				...col,
-				issues: [...col.issues]
-			}));
+		if (!hasActiveFilters && selectedFilterId) {
+			selectedFilterId = '';
+			filtersStore.setCurrentFilter(null);
 		}
 	});
 
 	// Sprint state for scrum boards
 	let currentSprint = $state<SprintWithStats | null>(null);
 
-	// Get the dragged issue from its ID
-	let draggedIssue = $derived.by(() => {
-		if (!draggedIssueId) return null;
-		for (const col of localColumns) {
-			const found = col.issues.find(i => i.id === draggedIssueId);
-			if (found) return found;
-		}
-		return null;
-	});
-
-	// Get allowed target status IDs for the currently dragged issue
-	let allowedTargetStatusIds = $derived.by(() => {
-		if (!draggedIssue) return [];
-		// If no workflow transitions defined, allow all
-		if ($workflowTransitions.length === 0) return [];
-		const currentStatusId = draggedIssue.status.id;
-		return $workflowTransitions
-			.filter((t) => t.from_status.id === currentStatusId)
-			.map((t) => t.to_status.id);
-	});
-
-	// Check if a column is a valid drop target for the dragged issue
-	function isValidDropTarget(columnStatusId: string): boolean {
-		if (!draggedIssue) return false;
-		// Same column - not a valid target
-		if (draggedIssue.status.id === columnStatusId) return false;
-		// If no workflow defined, allow all transitions
-		if ($workflowTransitions.length === 0) return true;
-		// Check if transition is allowed
-		return allowedTargetStatusIds.includes(columnStatusId);
-	}
-
 	onMount(async () => {
 		const key = get(page).params.key!;
-		// Load project, members, and sprints in parallel
+		// Load project, members, sprints, and saved filters in parallel
 		await Promise.all([
 			projects.loadProject(key),
 			projects.loadMembers(key),
-			sprints.loadSprints(key)
+			sprints.loadSprints(key),
+			filtersStore.load(key)
 		]);
 		// Load board data with initial filters from URL
 		const boards = await board.loadBoards(key);
@@ -229,11 +253,37 @@
 	// Set default issue type when loaded
 	$effect(() => {
 		if ($issueTypes.length > 0 && !newIssueTypeId) {
-			// Default to "Task" type (index 2) or first available
 			const taskType = $issueTypes.find((t) => t.name === 'Задача');
 			newIssueTypeId = taskType?.id || $issueTypes[0]?.id || '';
 		}
 	});
+
+	// Load custom fields when issue type changes
+	$effect(() => {
+		if (projectKey && newIssueTypeId) {
+			loadCustomFieldsForType(newIssueTypeId);
+		}
+	});
+
+	async function loadCustomFieldsForType(typeId: string) {
+		try {
+			const fields = await api.get<CustomFieldDefinition[]>(
+				`/api/projects/${projectKey}/custom-fields/for-type/${typeId}`
+			);
+			customFieldDefinitions = fields;
+			const newForm: Record<string, unknown> = {};
+			for (const field of fields) {
+				if (field.default_value !== null && field.default_value !== undefined) {
+					newForm[field.field_key] = field.default_value;
+				}
+			}
+			customFieldsForm = newForm;
+		} catch (err) {
+			console.error('Failed to load custom fields:', err);
+			customFieldDefinitions = [];
+			customFieldsForm = {};
+		}
+	}
 
 	function handleQuickCreate(statusId: string) {
 		newIssueStatusId = statusId;
@@ -258,7 +308,8 @@
 				assignee_id: newIssueAssigneeId !== 'none' ? parseInt(newIssueAssigneeId) : undefined,
 				epic_id: newIssueEpicId !== 'none' ? newIssueEpicId : undefined,
 				due_date: newIssueDueDate || undefined,
-				status_id: newIssueStatusId || undefined
+				status_id: newIssueStatusId || undefined,
+				custom_fields: Object.keys(customFieldsForm).length > 0 ? customFieldsForm : undefined
 			});
 
 			showCreateIssueModal = false;
@@ -268,6 +319,7 @@
 			newIssueEpicId = 'none';
 			newIssueDueDate = '';
 			newIssueStatusId = '';
+			customFieldsForm = {};
 		} catch (err) {
 			createError = err instanceof Error ? err.message : 'Не удалось создать задачу';
 		} finally {
@@ -275,74 +327,27 @@
 		}
 	}
 
-	// svelte-dnd-action handlers
-	function handleDndConsider(columnStatusId: string, e: CustomEvent<DndEvent<Issue>>) {
-		const columnIndex = localColumns.findIndex(c => c.status.id === columnStatusId);
-		if (columnIndex !== -1) {
-			// Update the column's issues during drag
-			localColumns[columnIndex] = {
-				...localColumns[columnIndex],
-				issues: e.detail.items
-			};
-		}
-		// Track which issue is being dragged
-		if (e.detail.info.trigger === 'dragStarted') {
-			draggedIssueId = e.detail.info.id as string;
-		}
-	}
-
-	async function handleDndFinalize(columnStatusId: string, e: CustomEvent<DndEvent<Issue>>) {
-		const columnIndex = localColumns.findIndex(c => c.status.id === columnStatusId);
-		if (columnIndex === -1) return;
-
-		const column = localColumns[columnIndex];
-
-		// Update column issues
-		localColumns[columnIndex] = {
-			...column,
-			issues: e.detail.items
-		};
-
-		// Find the moved issue
-		const movedIssueId = e.detail.info.id as string;
-		const movedIssue = e.detail.items.find(i => i.id === movedIssueId);
-
-		// Reset drag state
-		draggedIssueId = null;
-
-		// If the issue was moved to a different column, update status on server
-		if (movedIssue && movedIssue.status.id !== columnStatusId) {
-			// Check workflow transition
-			const transition = $workflowTransitions.find(
-				t => t.from_status.id === movedIssue.status.id && t.to_status.id === columnStatusId
-			);
-
-			if ($workflowTransitions.length > 0 && !transition) {
-				// Invalid transition - reload board to revert
-				toasts.warning('Переход недоступен', `Нельзя переместить из "${movedIssue.status.name}" в "${column.status.name}"`);
-				const boardId = $currentBoard?.id;
-				if (boardId) {
-					await board.loadBoardData(boardId, boardFilters);
-				}
-				return;
-			}
-
-			try {
-				await board.updateIssueStatus(movedIssue.key, columnStatusId);
-			} catch (err) {
-				const message = err instanceof Error ? err.message : 'Ошибка обновления статуса';
-				toasts.error('Ошибка', message);
-				// Reload board to revert
-				const boardId = $currentBoard?.id;
-				if (boardId) {
-					await board.loadBoardData(boardId, boardFilters);
-				}
+	async function handleStatusUpdate(issueKey: string, statusId: string) {
+		try {
+			await board.updateIssueStatus(issueKey, statusId);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Ошибка обновления статуса';
+			toasts.error('Ошибка', message);
+			// Reload board to revert
+			const boardId = $currentBoard?.id;
+			if (boardId) {
+				await board.loadBoardData(boardId, boardFilters);
 			}
 		}
 	}
 
-	function getColumnStoryPoints(column: BoardColumn): number {
-		return column.issues.reduce((sum, issue) => sum + (issue.story_points || 0), 0);
+	function handleTransitionError(message: string, fromStatus: string, toStatus: string) {
+		toasts.warning('Переход недоступен', `Нельзя переместить из "${fromStatus}" в "${toStatus}"`);
+		// Reload board to revert
+		const boardId = $currentBoard?.id;
+		if (boardId) {
+			board.loadBoardData(boardId, boardFilters);
+		}
 	}
 
 	async function handleUpdatePriority(issueKey: string, priority: string) {
@@ -363,9 +368,69 @@
 		}
 	}
 
+	async function handleUpdateStoryPoints(issueKey: string, storyPoints: number | null) {
+		try {
+			await board.updateIssueStoryPoints(issueKey, storyPoints);
+		} catch {
+			toasts.error('Ошибка', 'Не удалось обновить Story Points');
+		}
+	}
+
+	// Saved filters handlers
+	function buildFiltersForSave(): FilterValues {
+		const f: FilterValues = {};
+		if (boardFilters.assignee_id !== undefined) {
+			f.assignee_id = boardFilters.assignee_id;
+		}
+		if (boardFilters.type_id) {
+			f.type_id = boardFilters.type_id;
+		}
+		if (boardFilters.priority) {
+			f.priority = boardFilters.priority;
+		}
+		if (boardFilters.search) {
+			f.search = boardFilters.search;
+		}
+		// Note: sprint_id is not part of FilterValues, it's board-specific
+		return f;
+	}
+
+	function handleSavedFilterApply(filter: SavedFilter) {
+		selectedFilterId = filter.id;
+		filtersStore.setCurrentFilter(filter);
+		// Apply the saved filter values, preserving current sprint filter
+		const newFilters: BoardFilterValues = {
+			...filter.filters,
+			sprint_id: boardFilters.sprint_id
+		};
+		handleFilterChange(newFilters);
+	}
+
+	async function handleSaveFilter(data: CreateFilterData): Promise<void> {
+		if (!projectKey) return;
+		const filter = await filtersStore.create(projectKey, data);
+		if (filter) {
+			toasts.success('Фильтр сохранён', `Фильтр "${filter.name}" успешно создан`);
+		} else {
+			throw new Error('Не удалось сохранить фильтр');
+		}
+	}
+
+	async function handleDeleteFilter(filter: SavedFilter): Promise<void> {
+		if (!projectKey) return;
+		const success = await filtersStore.delete(projectKey, filter.id);
+		if (success) {
+			toasts.success('Фильтр удалён');
+			if (selectedFilterId === filter.id) {
+				selectedFilterId = '';
+				filtersStore.setCurrentFilter(null);
+				handleFilterChange({});
+			}
+		}
+	}
+
 	// Keyboard shortcuts
 	function handleKeyDown(event: KeyboardEvent) {
-		// Don't trigger shortcuts when typing in inputs
 		if (
 			event.target instanceof HTMLInputElement ||
 			event.target instanceof HTMLTextAreaElement ||
@@ -376,34 +441,24 @@
 
 		switch (event.key.toLowerCase()) {
 			case 'c':
-				// Create new issue
 				showCreateIssueModal = true;
 				event.preventDefault();
 				break;
 			case 'b':
-				// Go to backlog
 				window.location.href = `/projects/${projectKey}/backlog`;
 				event.preventDefault();
 				break;
-			case '/':
-				// Focus search (if implemented)
+			case 'v':
+				// Toggle view
+				handleViewChange(currentView === 'board' ? 'list' : 'board');
 				event.preventDefault();
 				break;
 			case 'escape':
-				// Close modal
 				if (showCreateIssueModal) {
 					showCreateIssueModal = false;
 					event.preventDefault();
 				}
 				break;
-		}
-	}
-
-	async function handleUpdateStoryPoints(issueKey: string, storyPoints: number | null) {
-		try {
-			await board.updateIssueStoryPoints(issueKey, storyPoints);
-		} catch {
-			toasts.error('Ошибка', 'Не удалось обновить Story Points');
 		}
 	}
 </script>
@@ -437,6 +492,9 @@
 				{/if}
 			</div>
 			<div class="header-actions">
+				<Button kind="ghost" href="/projects/{projectKey}/issues">
+					Задачи
+				</Button>
 				<Button kind="ghost" href="/projects/{projectKey}/backlog">
 					Бэклог
 				</Button>
@@ -448,6 +506,9 @@
 				</Button>
 				<Button kind="ghost" icon={ChartColumn} href="/projects/{projectKey}/metrics">
 					Метрики
+				</Button>
+				<Button kind="ghost" icon={Report} href="/projects/{projectKey}/reports">
+					Отчёты
 				</Button>
 				<Button kind="ghost" icon={Settings} href="/projects/{projectKey}/settings">
 					Настройки
@@ -470,81 +531,64 @@
 		{/if}
 
 		<div class="filters-container">
-			<BoardFilters
-				issueTypes={$issueTypes}
-				members={($projectMembers || []).map((m) => ({
-					id: m.user_id,
-					username: m.username,
-					full_name: m.full_name
-				}))}
-				sprints={$sprints.sprints}
-				filters={boardFilters}
-				onFilterChange={handleFilterChange}
-			/>
-		</div>
-
-		<div class="board-container">
-			<div class="board">
-				{#each localColumns as column (column.status.id)}
-						<div
-						class="column"
-						class:drag-over={draggedIssueId && isValidDropTarget(column.status.id)}
-						class:drag-invalid={draggedIssueId && !isValidDropTarget(column.status.id) && draggedIssue?.status.id !== column.status.id}
-						role="region"
-						aria-label={column.status.name}
+			<div class="filters-left">
+				<BoardFilters
+					issueTypes={$issueTypes}
+					members={members}
+					sprints={$sprints.sprints}
+					filters={boardFilters}
+					savedFilters={$savedFilters}
+					{selectedFilterId}
+					onFilterChange={handleFilterChange}
+					onSavedFilterSelect={handleSavedFilterApply}
+				/>
+			</div>
+			<div class="filters-right">
+				{#if hasActiveFilters}
+					<Button
+						kind="tertiary"
+						size="small"
+						icon={Save}
+						on:click={() => (showSaveFilterModal = true)}
 					>
-						<div class="column-header">
-							<span class="column-title">
-								<span class="status-dot" style="background-color: {column.status.color}"></span>
-								{column.status.name}
-							</span>
-							<div class="column-actions">
-								<button
-									class="quick-add-btn"
-									title="Добавить задачу в {column.status.name}"
-									onclick={() => handleQuickCreate(column.status.id)}
-								>
-									<Add size={16} />
-								</button>
-								<div class="column-stats">
-									<Tag size="sm">{column.count}</Tag>
-									{#if getColumnStoryPoints(column) > 0}
-										<Tag size="sm" type="outline">{getColumnStoryPoints(column)} SP</Tag>
-									{/if}
-								</div>
-							</div>
-						</div>
-						<div
-							class="column-content"
-							use:dndzone={{
-								items: column.issues,
-								flipDurationMs,
-								type: 'board-issues'
-							}}
-							onconsider={(e) => handleDndConsider(column.status.id, e)}
-							onfinalize={(e) => handleDndFinalize(column.status.id, e)}
-						>
-							{#each column.issues as issue (issue.id)}
-								<article class="dnd-item" animate:flip={{ duration: flipDurationMs }}>
-									<IssueCard
-										{issue}
-										isDragging={draggedIssueId === issue.id}
-										onUpdateStoryPoints={handleUpdateStoryPoints}
-										onUpdatePriority={handleUpdatePriority}
-										onUpdateAssignee={handleUpdateAssignee}
-										availableAssignees={($projectMembers || []).map(m => ({
-											id: m.user_id,
-											username: m.username,
-											full_name: m.full_name
-										}))}
-									/>
-								</article>
-							{/each}
-						</div>
-					</div>
-				{/each}
+						Сохранить
+					</Button>
+				{/if}
+				{#if $savedFilters.length > 0}
+					<OverflowMenu flipped iconDescription="Управление фильтрами">
+						{#each $savedFilters as filter (filter.id)}
+							<OverflowMenuItem
+								text="Удалить «{filter.name}»"
+								danger
+								on:click={() => handleDeleteFilter(filter)}
+							/>
+						{/each}
+					</OverflowMenu>
+				{/if}
+				<ViewSwitcher {currentView} onViewChange={handleViewChange} />
 			</div>
 		</div>
+
+		{#if currentView === 'board'}
+			<BoardView
+				columns={$boardColumns}
+				workflowTransitions={$workflowTransitions}
+				{members}
+				onStatusUpdate={handleStatusUpdate}
+				onPriorityUpdate={handleUpdatePriority}
+				onAssigneeUpdate={handleUpdateAssignee}
+				onStoryPointsUpdate={handleUpdateStoryPoints}
+				onQuickCreate={handleQuickCreate}
+				onTransitionError={handleTransitionError}
+			/>
+		{:else}
+			<ListView
+				issues={$flatIssuesList}
+				{members}
+				onPriorityUpdate={handleUpdatePriority}
+				onAssigneeUpdate={handleUpdateAssignee}
+			/>
+		{/if}
 	</div>
 {:else}
 	<div class="not-found">
@@ -610,7 +654,6 @@
 					on:change={(e) => {
 						const detail = e.detail;
 						if (detail && typeof detail === 'object' && 'dateStr' in detail) {
-							// Convert from dd.mm.yyyy to yyyy-mm-dd for API
 							const parts = detail.dateStr.split('.');
 							if (parts.length === 3) {
 								newIssueDueDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -634,6 +677,107 @@
 			</div>
 		{/if}
 
+		{#if customFieldDefinitions.length > 0}
+			<div class="custom-fields-section">
+				<h4>Дополнительные поля</h4>
+				{#each customFieldDefinitions as field (field.id)}
+					<div class="form-group">
+						{#if field.field_type === 'text'}
+							<TextInput
+								labelText={field.name}
+								value={customFieldsForm[field.field_key]?.toString() || ''}
+								required={field.is_required}
+								on:input={(e) => {
+									const target = e.target as HTMLInputElement;
+									customFieldsForm[field.field_key] = target.value;
+								}}
+							/>
+						{:else if field.field_type === 'textarea'}
+							<TextArea
+								labelText={field.name}
+								value={customFieldsForm[field.field_key]?.toString() || ''}
+								required={field.is_required}
+								on:input={(e) => {
+									const target = e.target as HTMLTextAreaElement;
+									customFieldsForm[field.field_key] = target.value;
+								}}
+							/>
+						{:else if field.field_type === 'number'}
+							<NumberInput
+								label={field.name}
+								value={typeof customFieldsForm[field.field_key] === 'number' ? customFieldsForm[field.field_key] : null}
+								on:change={(e) => {
+									customFieldsForm[field.field_key] = e.detail ?? null;
+								}}
+							/>
+						{:else if field.field_type === 'date'}
+							<DatePicker
+								datePickerType="single"
+								dateFormat="d.m.Y"
+								value={customFieldsForm[field.field_key]?.toString() || ''}
+								on:change={(e) => {
+									const detail = e.detail;
+									if (detail && typeof detail === 'object' && 'dateStr' in detail) {
+										const dateStr = detail.dateStr;
+										if (typeof dateStr === 'string' && dateStr) {
+											const parts = dateStr.split('.');
+											if (parts.length === 3) {
+												customFieldsForm[field.field_key] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+											}
+										} else {
+											customFieldsForm[field.field_key] = null;
+										}
+									}
+								}}
+							>
+								<DatePickerInput labelText={field.name} placeholder="дд.мм.гггг" />
+							</DatePicker>
+						{:else if field.field_type === 'select'}
+							<Dropdown
+								titleText={field.name}
+								selectedId={customFieldsForm[field.field_key]?.toString() || ''}
+								items={[
+									{ id: '', text: 'Не выбрано' },
+									...field.options.map((opt) => ({ id: opt, text: opt }))
+								]}
+								on:select={(e) => {
+									customFieldsForm[field.field_key] = e.detail.selectedId || null;
+								}}
+							/>
+						{:else if field.field_type === 'multiselect'}
+							<MultiSelect
+								titleText={field.name}
+								selectedIds={Array.isArray(customFieldsForm[field.field_key]) ? customFieldsForm[field.field_key] : []}
+								items={field.options.map((opt) => ({ id: opt, text: opt }))}
+								on:select={(e) => {
+									customFieldsForm[field.field_key] = e.detail.selectedIds;
+								}}
+							/>
+						{:else if field.field_type === 'checkbox'}
+							<Checkbox
+								labelText={field.name}
+								checked={customFieldsForm[field.field_key] === true}
+								on:check={(e) => {
+									customFieldsForm[field.field_key] = e.detail;
+								}}
+							/>
+						{:else if field.field_type === 'url'}
+							<TextInput
+								labelText={field.name}
+								value={customFieldsForm[field.field_key]?.toString() || ''}
+								required={field.is_required}
+								type="url"
+								on:input={(e) => {
+									const target = e.target as HTMLInputElement;
+									customFieldsForm[field.field_key] = target.value;
+								}}
+							/>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+
 		<div class="form-group">
 			<label class="bx--label">Описание</label>
 			<RichEditor
@@ -644,6 +788,13 @@
 		</div>
 	</div>
 </Modal>
+
+<SaveFilterModal
+	open={showSaveFilterModal}
+	filters={buildFiltersForSave()}
+	onClose={() => (showSaveFilterModal = false)}
+	onSave={handleSaveFilter}
+/>
 
 <style>
 	.loading-container {
@@ -687,111 +838,31 @@
 	}
 
 	.filters-container {
-		padding: 0 1rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.5rem 1rem;
+		flex-shrink: 0;
+		gap: 1rem;
+	}
+
+	.filters-left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.filters-right {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 		flex-shrink: 0;
 	}
 
-	.board-container {
-		flex: 1;
-		overflow-x: auto;
-		padding: 1rem;
-	}
-
-	.board {
-		display: flex;
-		gap: 1rem;
-		height: 100%;
-		min-width: max-content;
-	}
-
-	.column {
-		width: 320px;
-		min-width: 320px;
-		background: var(--cds-layer);
-		border-radius: 8px;
-		display: flex;
-		flex-direction: column;
-		max-height: 100%;
-		transition:
-			box-shadow 0.2s ease,
-			background-color 0.2s ease,
-			opacity 0.2s ease,
-			transform 0.2s ease;
-	}
-
-	.column.drag-over {
-		box-shadow: inset 0 0 0 2px var(--cds-support-success);
-		background: rgba(36, 161, 72, 0.15);
-		transform: scale(1.01);
-	}
-
-	.column.drag-invalid {
-		opacity: 0.4;
-		box-shadow: inset 0 0 0 1px var(--cds-support-error);
-		background: rgba(218, 30, 40, 0.05);
-	}
-
-	.column-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1rem;
-		border-bottom: 1px solid var(--cds-border-subtle);
-	}
-
-	.column-title {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-weight: 600;
-	}
-
-	.column-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.quick-add-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		border: none;
-		border-radius: 4px;
-		background: transparent;
-		color: var(--cds-text-secondary);
-		cursor: pointer;
-		transition: all 0.1s ease;
-	}
-
-	.quick-add-btn:hover {
-		background: var(--cds-layer-hover);
-		color: var(--cds-interactive);
-	}
-
-	.column-stats {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.status-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-	}
-
-	.column-content {
-		flex: 1;
-		overflow-y: auto;
-		padding: 0.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		min-height: 100px;
-		transition: background-color 0.2s ease;
+	/* Prevent layout shift when buttons appear/disappear */
+	.filters-left :global(.bx--btn),
+	.filters-right :global(.bx--btn) {
+		flex-shrink: 0;
 	}
 
 	.not-found {
@@ -864,6 +935,20 @@
 	.modal-form .form-group :global(.editor-container),
 	.modal-form .form-group :global(.editor-wrapper) {
 		min-height: 80px !important;
+	}
+
+	/* Custom fields section */
+	.custom-fields-section {
+		margin-top: 0.5rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--cds-border-subtle);
+	}
+
+	.custom-fields-section h4 {
+		font-size: 0.875rem;
+		font-weight: 600;
+		margin-bottom: 1rem;
+		color: var(--cds-text-primary);
 	}
 
 	/* Fix DatePicker calendar in modal */

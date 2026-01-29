@@ -5,7 +5,7 @@ Admin configuration for projects app.
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Project, ProjectMembership
+from .models import Project, ProjectMembership, SavedFilter
 
 
 class ProjectMembershipInline(admin.TabularInline):
@@ -44,3 +44,31 @@ class ProjectMembershipAdmin(admin.ModelAdmin):
     list_filter = ["role", "joined_at"]
     search_fields = ["user__username", "user__email", "project__key", "project__name"]
     autocomplete_fields = ["user", "project"]
+
+
+@admin.register(SavedFilter)
+class SavedFilterAdmin(admin.ModelAdmin):
+    """Admin for SavedFilter model."""
+
+    list_display = [
+        "name",
+        "project",
+        "user",
+        "is_shared",
+        "created_at",
+    ]
+    list_filter = ["is_shared", "project", "created_at"]
+    search_fields = ["name", "project__key", "user__username"]
+    autocomplete_fields = ["project", "user"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (None, {"fields": ("id", "project", "user", "name")}),
+        (
+            "Настройки фильтра",
+            {"fields": ("filters", "columns", "sort_by", "sort_order")},
+        ),
+        ("Доступ", {"fields": ("is_shared",)}),
+        ("Даты", {"fields": ("created_at", "updated_at")}),
+    )

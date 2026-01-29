@@ -20,7 +20,7 @@
 		Loading,
 		Tile
 	} from 'carbon-components-svelte';
-	import { Add, Edit, TrashCan, UserFollow, Save, Warning, Renew } from 'carbon-icons-svelte';
+	import { Add, Edit, TrashCan, UserFollow, Save, Warning, Renew, ArrowRight } from 'carbon-icons-svelte';
 	import { issueTypes, issueTypesList, issueTypesLoading, issueTypesError } from '$lib/stores/issueTypes';
 	import { statuses, statusesList, statusesLoading, statusesError, categoryLabels } from '$lib/stores/statuses';
 	import { projects, currentProject, projectMembers, projectsLoading, projectsError } from '$lib/stores/projects';
@@ -29,7 +29,7 @@
 	import type { ProjectMember } from '$lib/stores/projects';
 	import api from '$lib/api/client';
 
-	const projectKey = $page.params.key;
+	const projectKey = $page.params.key!;
 
 	let selectedTab = $state(0);
 
@@ -71,9 +71,53 @@
 	let userSearchResults = $state<Array<{ id: number; username: string; email: string; full_name: string }>>([]);
 	let selectedUser = $state<{ id: number; username: string; email: string; full_name: string } | null>(null);
 
+	// Custom Field type and state
+	interface CustomField {
+		id: string;
+		name: string;
+		field_key: string;
+		field_type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox' | 'url';
+		options: string[] | null;
+		is_required: boolean;
+		default_value: string | null;
+	}
+
+	let customFieldModalOpen = $state(false);
+	let editingCustomField = $state<CustomField | null>(null);
+	let customFieldForm = $state({
+		name: '',
+		field_key: '',
+		field_type: 'text' as CustomField['field_type'],
+		options: '',
+		is_required: false,
+		default_value: ''
+	});
+	let customFieldsList = $state<CustomField[]>([]);
+	let customFieldsLoading = $state(false);
+	let customFieldsError = $state<string | null>(null);
+
+	// Workflow Transition type and state
+	interface WorkflowTransition {
+		id: string;
+		from_status: Status;
+		to_status: Status;
+		name: string;
+	}
+
+	let workflowModalOpen = $state(false);
+	let editingTransition = $state<WorkflowTransition | null>(null);
+	let workflowForm = $state({
+		from_status_id: '',
+		to_status_id: '',
+		name: ''
+	});
+	let workflowTransitions = $state<WorkflowTransition[]>([]);
+	let workflowLoading = $state(false);
+	let workflowError = $state<string | null>(null);
+
 	// Delete confirmation
 	let deleteModalOpen = $state(false);
-	let deleteTarget = $state<{ type: 'issueType' | 'status' | 'member'; id: string; name: string } | null>(null);
+	let deleteTarget = $state<{ type: 'issueType' | 'status' | 'member' | 'customField' | 'workflowTransition'; id: string; name: string } | null>(null);
 
 	// Archive/Restore/Delete confirmation
 	let archiveModalOpen = $state(false);
@@ -120,12 +164,62 @@
 		viewer: 'Наблюдатель'
 	};
 
+	const fieldTypes = [
+		{ value: 'text', label: 'Текст' },
+		{ value: 'textarea', label: 'Многострочный текст' },
+		{ value: 'number', label: 'Число' },
+		{ value: 'date', label: 'Дата' },
+		{ value: 'select', label: 'Выбор' },
+		{ value: 'multiselect', label: 'Множественный выбор' },
+		{ value: 'checkbox', label: 'Флажок' },
+		{ value: 'url', label: 'Ссылка' }
+	];
+
+	const fieldTypeLabels: Record<string, string> = {
+		text: 'Текст',
+		textarea: 'Многострочный текст',
+		number: 'Число',
+		date: 'Дата',
+		select: 'Выбор',
+		multiselect: 'Множественный выбор',
+		checkbox: 'Флажок',
+		url: 'Ссылка'
+	};
+
+	async function loadCustomFields() {
+		customFieldsLoading = true;
+		customFieldsError = null;
+		try {
+			const response = await api.get<CustomField[]>(`/api/projects/${projectKey}/custom-fields`);
+			customFieldsList = response;
+		} catch (err) {
+			customFieldsError = err instanceof Error ? err.message : 'Ошибка загрузки кастомных полей';
+		} finally {
+			customFieldsLoading = false;
+		}
+	}
+
+	async function loadWorkflowTransitions() {
+		workflowLoading = true;
+		workflowError = null;
+		try {
+			const response = await api.get<WorkflowTransition[]>(`/api/projects/${projectKey}/workflow`);
+			workflowTransitions = response;
+		} catch (err) {
+			workflowError = err instanceof Error ? err.message : 'Ошибка загрузки переходов';
+		} finally {
+			workflowLoading = false;
+		}
+	}
+
 	onMount(async () => {
 		await projects.loadProject(projectKey);
 		await Promise.all([
 			issueTypes.load(projectKey),
 			statuses.load(projectKey),
-			projects.loadMembers(projectKey)
+			projects.loadMembers(projectKey),
+			loadCustomFields(),
+			loadWorkflowTransitions()
 		]);
 	});
 
@@ -292,8 +386,106 @@
 		userSearchQuery = '';
 	}
 
+	// Custom Field handlers
+	function openCustomFieldModal(field?: CustomField) {
+		if (field) {
+			editingCustomField = field;
+			customFieldForm = {
+				name: field.name,
+				field_key: field.field_key,
+				field_type: field.field_type,
+				options: field.options ? JSON.stringify(field.options) : '',
+				is_required: field.is_required,
+				default_value: field.default_value || ''
+			};
+		} else {
+			editingCustomField = null;
+			customFieldForm = {
+				name: '',
+				field_key: '',
+				field_type: 'text',
+				options: '',
+				is_required: false,
+				default_value: ''
+			};
+		}
+		customFieldModalOpen = true;
+	}
+
+	async function handleCustomFieldSave() {
+		const payload: Record<string, unknown> = {
+			name: customFieldForm.name,
+			field_type: customFieldForm.field_type,
+			is_required: customFieldForm.is_required,
+			default_value: customFieldForm.default_value || null,
+			options: []
+		};
+
+		if (customFieldForm.field_type === 'select' || customFieldForm.field_type === 'multiselect') {
+			try {
+				payload.options = customFieldForm.options ? JSON.parse(customFieldForm.options) : [];
+			} catch {
+				customFieldsError = 'Неверный формат опций (ожидается JSON массив)';
+				return;
+			}
+		}
+
+		try {
+			if (editingCustomField) {
+				await api.patch(`/api/custom-fields/${editingCustomField.id}`, payload);
+			} else {
+				await api.post(`/api/projects/${projectKey}/custom-fields`, payload);
+			}
+			await loadCustomFields();
+			customFieldModalOpen = false;
+		} catch (err) {
+			customFieldsError = err instanceof Error ? err.message : 'Ошибка сохранения кастомного поля';
+		}
+	}
+
+	// Workflow Transition handlers
+	function openWorkflowModal(transition?: WorkflowTransition) {
+		if (transition) {
+			editingTransition = transition;
+			workflowForm = {
+				from_status_id: transition.from_status.id,
+				to_status_id: transition.to_status.id,
+				name: transition.name
+			};
+		} else {
+			editingTransition = null;
+			workflowForm = {
+				from_status_id: $statusesList.length > 0 ? $statusesList[0].id : '',
+				to_status_id: $statusesList.length > 1 ? $statusesList[1].id : '',
+				name: ''
+			};
+		}
+		workflowModalOpen = true;
+	}
+
+	async function handleWorkflowSave() {
+		workflowError = null;
+		try {
+			if (editingTransition) {
+				await api.patch(`/api/workflow/${editingTransition.id}`, {
+					name: workflowForm.name
+				});
+			} else {
+				await api.post(`/api/projects/${projectKey}/workflow`, {
+					from_status_id: workflowForm.from_status_id,
+					to_status_id: workflowForm.to_status_id,
+					name: workflowForm.name
+				});
+			}
+			await loadWorkflowTransitions();
+			workflowModalOpen = false;
+		} catch (err) {
+			workflowError = err instanceof Error ? err.message : 'Ошибка сохранения перехода';
+		}
+	}
+
 	// Delete handlers
-	function confirmDelete(type: 'issueType' | 'status' | 'member', id: string, name: string) {
+	function confirmDelete(type: 'issueType' | 'status' | 'member' | 'customField' | 'workflowTransition', id: string, name: string) {
 		deleteTarget = { type, id, name };
 		deleteModalOpen = true;
 	}
@@ -307,6 +499,20 @@
 			await statuses.delete(deleteTarget.id);
 		} else if (deleteTarget.type === 'member') {
 			await projects.removeMember(projectKey, parseInt(deleteTarget.id));
+		} else if (deleteTarget.type === 'customField') {
+			try {
+				await api.delete(`/api/custom-fields/${deleteTarget.id}`);
+				await loadCustomFields();
+			} catch (err) {
+				customFieldsError = err instanceof Error ? err.message : 'Ошибка удаления кастомного поля';
+			}
+		} else if (deleteTarget.type === 'workflowTransition') {
+			try {
+				await api.delete(`/api/workflow/${deleteTarget.id}`);
+				await loadWorkflowTransitions();
+			} catch (err) {
+				workflowError = err instanceof Error ? err.message : 'Ошибка удаления перехода';
+			}
 		}
 
 		deleteModalOpen = false;
@@ -366,6 +572,22 @@
 		{ key: 'joined_at', value: 'Дата добавления' },
 		{ key: 'actions', value: '' }
 	];
+
+	const customFieldHeaders = [
+		{ key: 'name', value: 'Название' },
+		{ key: 'field_key', value: 'Ключ' },
+		{ key: 'field_type', value: 'Тип' },
+		{ key: 'is_required', value: 'Обязательное' },
+		{ key: 'actions', value: '' }
+	];
+
+	const workflowHeaders = [
+		{ key: 'from_status', value: 'Из статуса' },
+		{ key: 'arrow', value: '' },
+		{ key: 'to_status', value: 'В статус' },
+		{ key: 'name', value: 'Название' },
+		{ key: 'actions', value: '' }
+	];
 </script>
 
 <svelte:head>
@@ -395,6 +617,8 @@
 		<Tab label="Участники" />
 		<Tab label="Типы задач" />
 		<Tab label="Статусы" />
+		<Tab label="Кастомные поля" />
+		<Tab label="Workflow" />
 		<svelte:fragment slot="content">
 			<!-- General Settings Tab -->
 			<TabContent>
@@ -558,7 +782,7 @@
 				{:else}
 					<DataTable
 						headers={issueTypeHeaders}
-						rows={$issueTypesList.map((item) => ({ id: item.id, ...item }))}
+						rows={$issueTypesList}
 					>
 						<svelte:fragment slot="cell" let:row let:cell>
 							{#if cell.key === 'color'}
@@ -613,7 +837,7 @@
 				{:else}
 					<DataTable
 						headers={statusHeaders}
-						rows={$statusesList.map((item) => ({ id: item.id, ...item }))}
+						rows={$statusesList}
 					>
 						<svelte:fragment slot="cell" let:row let:cell>
 							{#if cell.key === 'color'}
@@ -644,6 +868,138 @@
 							{/if}
 						</svelte:fragment>
 					</DataTable>
+				{/if}
+			</TabContent>
+
+			<!-- Custom Fields Tab -->
+			<TabContent>
+				<div class="tab-header">
+					<h3>Кастомные поля</h3>
+					<Button size="small" icon={Add} on:click={() => openCustomFieldModal()}>
+						Добавить поле
+					</Button>
+				</div>
+
+				{#if customFieldsError}
+					<InlineNotification
+						kind="error"
+						title="Ошибка"
+						subtitle={customFieldsError}
+						on:close={() => (customFieldsError = null)}
+					/>
+				{/if}
+
+				{#if customFieldsLoading}
+					<Loading withOverlay={false} small />
+				{:else}
+					<DataTable
+						headers={customFieldHeaders}
+						rows={customFieldsList}
+					>
+						<svelte:fragment slot="cell" let:row let:cell>
+							{#if cell.key === 'field_type'}
+								<Tag type="blue">
+									{fieldTypeLabels[cell.value] || cell.value}
+								</Tag>
+							{:else if cell.key === 'is_required'}
+								{cell.value ? 'Да' : 'Нет'}
+							{:else if cell.key === 'actions'}
+								<div class="actions">
+									<Button
+										kind="ghost"
+										size="small"
+										iconDescription="Редактировать"
+										icon={Edit}
+										on:click={() => openCustomFieldModal(row)}
+									/>
+									<Button
+										kind="ghost"
+										size="small"
+										iconDescription="Удалить"
+										icon={TrashCan}
+										on:click={() => confirmDelete('customField', row.id, row.name)}
+									/>
+								</div>
+							{:else}
+								{cell.value}
+							{/if}
+						</svelte:fragment>
+					</DataTable>
+				{/if}
+			</TabContent>
+
+			<!-- Workflow Tab -->
+			<TabContent>
+				<div class="tab-header">
+					<h3>Переходы статусов</h3>
+					<Button size="small" icon={Add} on:click={() => openWorkflowModal()}>
+						Добавить переход
+					</Button>
+				</div>
+
+				{#if workflowError}
+					<InlineNotification
+						kind="error"
+						title="Ошибка"
+						subtitle={workflowError}
+						on:close={() => (workflowError = null)}
+					/>
+				{/if}
+
+				{#if workflowLoading}
+					<Loading withOverlay={false} small />
+				{:else}
+					<DataTable
+						headers={workflowHeaders}
+						rows={workflowTransitions}
+					>
+						<svelte:fragment slot="cell" let:row let:cell>
+							{#if cell.key === 'from_status'}
+								<Tag type={row.from_status.category === 'done' ? 'green' : row.from_status.category === 'in_progress' ? 'blue' : 'gray'}>
+									<span class="status-tag-content">
+										<span class="color-dot-small" style="background-color: {row.from_status.color}"></span>
+										{row.from_status.name}
+									</span>
+								</Tag>
+							{:else if cell.key === 'arrow'}
+								<span class="arrow-cell"><ArrowRight size={20} /></span>
+							{:else if cell.key === 'to_status'}
+								<Tag type={row.to_status.category === 'done' ? 'green' : row.to_status.category === 'in_progress' ? 'blue' : 'gray'}>
+									<span class="status-tag-content">
+										<span class="color-dot-small" style="background-color: {row.to_status.color}"></span>
+										{row.to_status.name}
+									</span>
+								</Tag>
+							{:else if cell.key === 'name'}
+								{cell.value || '—'}
+							{:else if cell.key === 'actions'}
+								<div class="actions">
+									<Button
+										kind="ghost"
+										size="small"
+										iconDescription="Редактировать"
+										icon={Edit}
+										on:click={() => openWorkflowModal(row)}
+									/>
+									<Button
+										kind="ghost"
+										size="small"
+										iconDescription="Удалить"
+										icon={TrashCan}
+										on:click={() => confirmDelete('workflowTransition', row.id, `${row.from_status.name} → ${row.to_status.name}`)}
+									/>
+								</div>
+							{:else}
+								{cell.value}
+							{/if}
+						</svelte:fragment>
+					</DataTable>
+
+					{#if workflowTransitions.length === 0}
+						<div class="empty-state">
+							<p>Переходы не настроены. Добавьте переходы, чтобы ограничить возможные изменения статуса задач.</p>
+						</div>
+					{/if}
 				{/if}
 			</TabContent>
 		</svelte:fragment>
@@ -783,6 +1139,101 @@
 				<SelectItem value={role.value} text={role.label} />
 			{/each}
 		</Select>
+	</div>
+</Modal>
+
+<!-- Custom Field Modal -->
+<Modal
+	bind:open={customFieldModalOpen}
+	modalHeading={editingCustomField ? 'Редактировать кастомное поле' : 'Новое кастомное поле'}
+	primaryButtonText="Сохранить"
+	secondaryButtonText="Отмена"
+	on:click:button--primary={handleCustomFieldSave}
+	on:click:button--secondary={() => (customFieldModalOpen = false)}
+>
+	<div class="modal-form">
+		<TextInput bind:value={customFieldForm.name} labelText="Название" required />
+
+		{#if editingCustomField}
+			<TextInput
+				value={customFieldForm.field_key}
+				labelText="Ключ поля"
+				disabled
+				helperText="Ключ генерируется автоматически"
+			/>
+		{/if}
+
+		<Select bind:selected={customFieldForm.field_type} labelText="Тип поля">
+			{#each fieldTypes as ft}
+				<SelectItem value={ft.value} text={ft.label} />
+			{/each}
+		</Select>
+
+		{#if customFieldForm.field_type === 'select' || customFieldForm.field_type === 'multiselect'}
+			<TextArea
+				bind:value={customFieldForm.options}
+				labelText="Варианты (JSON массив)"
+				placeholder='["Вариант 1", "Вариант 2"]'
+				rows={3}
+			/>
+		{/if}
+
+		<TextInput
+			bind:value={customFieldForm.default_value}
+			labelText="Значение по умолчанию"
+		/>
+
+		<div class="checkbox-field">
+			<input
+				type="checkbox"
+				id="is_required"
+				bind:checked={customFieldForm.is_required}
+			/>
+			<label for="is_required">Обязательное поле</label>
+		</div>
+	</div>
+</Modal>
+
+<!-- Workflow Transition Modal -->
+<Modal
+	bind:open={workflowModalOpen}
+	modalHeading={editingTransition ? 'Редактировать переход' : 'Новый переход'}
+	primaryButtonText="Сохранить"
+	secondaryButtonText="Отмена"
+	on:click:button--primary={handleWorkflowSave}
+	on:click:button--secondary={() => (workflowModalOpen = false)}
+>
+	<div class="modal-form">
+		{#if !editingTransition}
+			<Select bind:selected={workflowForm.from_status_id} labelText="Из статуса">
+				{#each $statusesList as status}
+					<SelectItem value={status.id} text={status.name} />
+				{/each}
+			</Select>
+
+			<Select bind:selected={workflowForm.to_status_id} labelText="В статус">
+				{#each $statusesList as status}
+					<SelectItem value={status.id} text={status.name} />
+				{/each}
+			</Select>
+		{:else}
+			<div class="transition-preview">
+				<Tag type={editingTransition.from_status.category === 'done' ? 'green' : editingTransition.from_status.category === 'in_progress' ? 'blue' : 'gray'}>
+					{editingTransition.from_status.name}
+				</Tag>
+				<ArrowRight size={20} />
+				<Tag type={editingTransition.to_status.category === 'done' ? 'green' : editingTransition.to_status.category === 'in_progress' ? 'blue' : 'gray'}>
+					{editingTransition.to_status.name}
+				</Tag>
+			</div>
+		{/if}
+
+		<TextInput
+			bind:value={workflowForm.name}
+			labelText="Название перехода"
+			placeholder="например: Начать работу"
+			helperText="Опционально. Отображается как действие для пользователя"
+		/>
 	</div>
 </Modal>
 
@@ -1119,5 +1570,69 @@
 
 	:global(.bx--tab-content) {
 		padding: 1rem 0;
+	}
+
+	.checkbox-field {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.checkbox-field input[type='checkbox'] {
+		width: 1rem;
+		height: 1rem;
+		accent-color: var(--cds-interactive, #0f62fe);
+	}
+
+	.checkbox-field label {
+		font-size: 0.875rem;
+		color: var(--cds-text-primary);
+		cursor: pointer;
+	}
+
+	.status-tag-content {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.color-dot-small {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+	}
+
+	.arrow-cell {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--cds-text-secondary);
+	}
+
+	.transition-preview {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 1rem;
+		background: var(--cds-layer-02, #393939);
+		border-radius: 4px;
+	}
+
+	.transition-preview :global(svg) {
+		color: var(--cds-text-secondary);
+	}
+
+	.empty-state {
+		padding: 2rem;
+		text-align: center;
+		color: var(--cds-text-secondary);
+		background: var(--cds-layer-01, #262626);
+		border-radius: 4px;
+		margin-top: 1rem;
+	}
+
+	.empty-state p {
+		margin: 0;
 	}
 </style>

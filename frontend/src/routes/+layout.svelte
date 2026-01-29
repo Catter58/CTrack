@@ -15,12 +15,15 @@
 		Loading
 	} from 'carbon-components-svelte';
 	import { UserAvatar, Logout } from 'carbon-icons-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { auth, user, isAuthenticated, isLoading } from '$lib/stores/auth';
 	import { setup, setupRequired, setupLoading } from '$lib/stores/setup';
+	import { events } from '$lib/stores/events';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import EventNotification from '$lib/components/EventNotification.svelte';
+	import { GlobalSearch } from '$lib/components/search';
 
 	let { children } = $props();
 
@@ -38,6 +41,19 @@
 		await setup.checkStatus();
 		// Then init auth (will fail gracefully if no users exist)
 		await auth.init();
+	});
+
+	// Connect/disconnect SSE based on authentication status
+	$effect(() => {
+		if ($isAuthenticated) {
+			events.connect();
+		} else {
+			events.disconnect();
+		}
+	});
+
+	onDestroy(() => {
+		events.disconnect();
 	});
 
 	// Redirect logic
@@ -64,6 +80,7 @@
 
 <Theme theme="g90" />
 <ToastContainer />
+<EventNotification />
 
 <svelte:head>
 	<title>CTrack</title>
@@ -86,9 +103,13 @@
 			<HeaderNavItem href="/projects" text="Проекты" />
 			<HeaderNavItem href="/tasks" text="Задачи" />
 			<HeaderNavItem href="/feed" text="Лента" />
+			{#if $user?.is_staff}
+				<HeaderNavItem href="/admin" text="Админ" />
+			{/if}
 		</HeaderNav>
 
 		<HeaderUtilities>
+			<GlobalSearch />
 			<HeaderAction bind:isOpen={isUserMenuOpen} icon={UserAvatar}>
 				<HeaderPanelLinks>
 					<div class="user-info">

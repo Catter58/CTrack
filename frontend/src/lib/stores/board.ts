@@ -4,6 +4,7 @@
 
 import { writable, derived, get } from "svelte/store";
 import api from "$lib/api/client";
+import { events, type SSEEvent, type IssueEventData } from "$lib/stores/events";
 
 export interface IssueType {
   id: string;
@@ -75,6 +76,7 @@ export interface WorkflowTransition {
 interface BoardState {
   boards: Board[];
   currentBoard: Board | null;
+  currentProjectKey: string | null;
   columns: BoardColumn[];
   issueTypes: IssueType[];
   statuses: Status[];
@@ -87,6 +89,7 @@ function createBoardStore() {
   const store = writable<BoardState>({
     boards: [],
     currentBoard: null,
+    currentProjectKey: null,
     columns: [],
     issueTypes: [],
     statuses: [],
@@ -97,11 +100,131 @@ function createBoardStore() {
 
   const { subscribe, set, update } = store;
 
+  // SSE event handlers
+  function handleIssueCreated(event: SSEEvent): void {
+    const data = event.data as unknown as IssueEventData;
+    if (!data) return;
+
+    const state = get(store);
+    if (!state.currentProjectKey || !state.currentBoard) return;
+
+    // Check if this issue belongs to current project
+    if (data.project_key !== state.currentProjectKey) return;
+
+    // Reload board data to get the new issue with full details
+    // We can't add it directly because we don't have the full issue object
+    const boardId = state.currentBoard.id;
+    api
+      .get<BoardData>(`/api/boards/${boardId}/issues`)
+      .then((boardData) => {
+        update((s) => ({
+          ...s,
+          columns: boardData.columns,
+        }));
+      })
+      .catch((err) => {
+        console.error(
+          "[Board SSE] Failed to reload board after issue.created:",
+          err,
+        );
+      });
+  }
+
+  function handleIssueUpdated(event: SSEEvent): void {
+    const data = event.data as unknown as IssueEventData;
+    if (!data) return;
+
+    const state = get(store);
+    if (!state.currentProjectKey || !state.currentBoard) return;
+
+    // Check if this issue belongs to current project
+    if (data.project_key !== state.currentProjectKey) return;
+
+    // Find and update the issue in columns
+    const issueKey = data.issue_key;
+    let issueFound = false;
+
+    for (const col of state.columns) {
+      const issue = col.issues.find((i) => i.key === issueKey);
+      if (issue) {
+        issueFound = true;
+        break;
+      }
+    }
+
+    if (!issueFound) return;
+
+    // Reload board to get updated issue data
+    const boardId = state.currentBoard.id;
+    api
+      .get<BoardData>(`/api/boards/${boardId}/issues`)
+      .then((boardData) => {
+        update((s) => ({
+          ...s,
+          columns: boardData.columns,
+        }));
+      })
+      .catch((err) => {
+        console.error(
+          "[Board SSE] Failed to reload board after issue.updated:",
+          err,
+        );
+      });
+  }
+
+  function handleIssueMoved(event: SSEEvent): void {
+    // Issue moved is essentially an update - reload board
+    handleIssueUpdated(event);
+  }
+
+  function handleIssueDeleted(event: SSEEvent): void {
+    const data = event.data as unknown as IssueEventData;
+    if (!data) return;
+
+    const state = get(store);
+    if (!state.currentProjectKey || !state.currentBoard) return;
+
+    // Check if this issue belongs to current project
+    if (data.project_key !== state.currentProjectKey) return;
+
+    const issueKey = data.issue_key;
+
+    // Remove issue from columns optimistically
+    update((s) => {
+      const newColumns = s.columns.map((col) => {
+        const issueIndex = col.issues.findIndex((i) => i.key === issueKey);
+        if (issueIndex === -1) return col;
+
+        const newIssues = [...col.issues];
+        newIssues.splice(issueIndex, 1);
+
+        return {
+          ...col,
+          issues: newIssues,
+          count: col.count - 1,
+        };
+      });
+
+      return { ...s, columns: newColumns };
+    });
+  }
+
+  // Subscribe to SSE events
+  events.on("issue.created", handleIssueCreated);
+  events.on("issue.updated", handleIssueUpdated);
+  events.on("issue.moved", handleIssueMoved);
+  events.on("issue.deleted", handleIssueDeleted);
+
   return {
     subscribe,
 
     async loadBoards(projectKey: string) {
-      update((s) => ({ ...s, isLoading: true, error: null }));
+      update((s) => ({
+        ...s,
+        isLoading: true,
+        error: null,
+        currentProjectKey: projectKey,
+      }));
 
       try {
         const boards = await api.get<Board[]>(
@@ -440,6 +563,7 @@ function createBoardStore() {
       set({
         boards: [],
         currentBoard: null,
+        currentProjectKey: null,
         columns: [],
         issueTypes: [],
         statuses: [],

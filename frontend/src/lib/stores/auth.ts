@@ -16,6 +16,7 @@ export interface User {
   bio: string;
   timezone: string;
   is_active: boolean;
+  is_staff: boolean;
 }
 
 interface AuthState {

@@ -19,7 +19,7 @@
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	let { issues, members, onPriorityUpdate, onAssigneeUpdate }: Props = $props();
 
-	const headers = [
+	const headers: { key: string; value: string }[] = [
 		{ key: 'key', value: 'Ключ' },
 		{ key: 'title', value: 'Название' },
 		{ key: 'status', value: 'Статус' },
@@ -27,7 +27,7 @@
 		{ key: 'assignee', value: 'Исполнитель' },
 		{ key: 'story_points', value: 'SP' },
 		{ key: 'due_date', value: 'Срок' }
-	];
+	] as const;
 
 	const priorityLabels: Record<string, string> = {
 		highest: 'Критический',
@@ -103,6 +103,7 @@
 			<p>Нет задач для отображения</p>
 		</div>
 	{:else}
+		<!-- @ts-expect-error Carbon DataTable typing issue with Svelte 5 -->
 		<DataTable sortable {headers} {rows} size="short">
 			<svelte:fragment slot="cell" let:row let:cell>
 				{#if cell.key === 'key'}

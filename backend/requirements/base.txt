@@ -37,3 +37,6 @@ whitenoise>=6.8
 
 # Production сервер
 gunicorn>=23.0
+
+# Logging
+python-json-logger>=2.0

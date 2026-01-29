@@ -499,6 +499,14 @@ def get_filter_issues(
     offset: int = 0,
 ):
     """Get issues matching saved filter criteria."""
+    # Validate and cap limit
+    if limit < 1:
+        limit = 50
+    if limit > 100:
+        limit = 100
+    if offset < 0:
+        offset = 0
+
     saved_filter = ProjectService.get_saved_filter_by_id(filter_id)
 
     if not saved_filter:

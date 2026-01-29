@@ -270,6 +270,20 @@ class IssueService:
         # Log creation activity
         ActivityService.log_creation(issue, user)
 
+        # Publish real-time event
+        from apps.core.events import publish_issue_created
+
+        publish_issue_created(
+            issue.project_id,
+            {
+                "id": str(issue.id),
+                "key": issue.key,
+                "title": issue.title,
+                "status_id": str(issue.status_id),
+                "issue_type_id": str(issue.issue_type_id),
+            },
+        )
+
         return issue
 
     @staticmethod
@@ -286,7 +300,7 @@ class IssueService:
         from django.db.models import Q
 
         queryset = Issue.objects.filter(project=project).select_related(
-            "issue_type", "status", "assignee", "reporter"
+            "issue_type", "status", "assignee", "reporter", "project", "sprint"
         )
 
         if status_id:
@@ -321,7 +335,9 @@ class IssueService:
         queryset = (
             Issue.objects.filter(project=project)
             .exclude(sprint__status__in=[SprintStatus.ACTIVE, SprintStatus.PLANNED])
-            .select_related("issue_type", "status", "assignee", "reporter")
+            .select_related(
+                "issue_type", "status", "assignee", "reporter", "project", "sprint"
+            )
             .order_by("priority", "-created_at")
         )
 
@@ -370,7 +386,9 @@ class IssueService:
         """Get issue by key."""
         return (
             Issue.objects.filter(key=key.upper())
-            .select_related("issue_type", "status", "assignee", "reporter", "project")
+            .select_related(
+                "issue_type", "status", "assignee", "reporter", "project", "sprint"
+            )
             .first()
         )
 
@@ -379,7 +397,9 @@ class IssueService:
         """Get issue by ID."""
         return (
             Issue.objects.filter(id=issue_id)
-            .select_related("issue_type", "status", "assignee", "reporter", "project")
+            .select_related(
+                "issue_type", "status", "assignee", "reporter", "project", "sprint"
+            )
             .first()
         )
 
@@ -461,12 +481,44 @@ class IssueService:
                     issue, user, old_story_points, issue.story_points
                 )
 
+        # Publish real-time events
+        from apps.core.events import publish_issue_moved, publish_issue_updated
+
+        # Check if status changed (issue.moved event)
+        if "status_id" in kwargs and old_status.id != issue.status_id:
+            publish_issue_moved(
+                issue.project_id,
+                issue.key,
+                old_status.name,
+                issue.status.name,
+            )
+        else:
+            # General update event
+            publish_issue_updated(
+                issue.project_id,
+                {
+                    "id": str(issue.id),
+                    "key": issue.key,
+                    "title": issue.title,
+                    "status_id": str(issue.status_id),
+                },
+            )
+
         return issue
 
     @staticmethod
     def delete_issue(issue: Issue) -> None:
         """Delete an issue."""
+        # Save data for event before deletion
+        project_id = issue.project_id
+        issue_key = issue.key
+
         issue.delete()
+
+        # Publish real-time event
+        from apps.core.events import publish_issue_deleted
+
+        publish_issue_deleted(project_id, issue_key)
 
     @staticmethod
     def get_comments(issue: Issue) -> QuerySet[IssueComment]:
@@ -477,6 +529,20 @@ class IssueService:
     def add_comment(issue: Issue, user: User, content: str) -> IssueComment:
         comment = IssueComment.objects.create(issue=issue, author=user, content=content)
         ActivityService.log_comment(issue, user)
+
+        # Publish real-time event
+        from apps.core.events import publish_comment_added
+
+        publish_comment_added(
+            issue.project_id,
+            issue.key,
+            {
+                "id": str(comment.id),
+                "author_id": user.id,
+                "author_name": user.get_full_name() or user.username,
+            },
+        )
+
         return comment
 
     @staticmethod
@@ -798,7 +864,9 @@ class IssueService:
         """Get direct children (subtasks) of an issue."""
         return (
             Issue.objects.filter(parent=issue)
-            .select_related("issue_type", "status", "assignee", "reporter")
+            .select_related(
+                "issue_type", "status", "assignee", "reporter", "project", "sprint"
+            )
             .order_by("-created_at")
         )
 
@@ -969,6 +1037,7 @@ class IssueService:
             "assignee",
             "reporter",
             "project",
+            "sprint",
         )
 
         # Apply filters

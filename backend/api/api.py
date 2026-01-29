@@ -6,14 +6,17 @@
 
 from ninja import NinjaAPI
 
+from api.admin import router as admin_router
 from api.auth import router as auth_router
 from api.boards import router as boards_router
 from api.custom_fields import router as custom_fields_router
+from api.events import router as events_router
 from api.feed import router as feed_router
 from api.health import router as health_router
 from api.issues import router as issues_router
 from api.projects import router as projects_router
 from api.reports import router as reports_router
+from api.search import router as search_router
 from api.setup import router as setup_router
 from api.sprints import router as sprints_router
 from api.users import router as users_router
@@ -57,3 +60,12 @@ api.add_router("", custom_fields_router, tags=["Custom Fields"])
 
 # Feed endpoints
 api.add_router("", feed_router, tags=["Feed"])
+
+# Events (SSE) endpoints
+api.add_router("", events_router, tags=["Events"])
+
+# Admin endpoints
+api.add_router("", admin_router, tags=["Admin"])
+
+# Search endpoints
+api.add_router("", search_router, tags=["Search"])

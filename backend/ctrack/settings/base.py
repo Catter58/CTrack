@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     # Third-party
     "corsheaders",
     "django_filters",
@@ -103,13 +104,17 @@ DATABASES = {
 }
 
 
+# Redis URL (shared by Cache, Channels, and SSE)
+REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+
+
 # Cache
 # https://docs.djangoproject.com/en/6.0/topics/cache/
 
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_URL", default="redis://localhost:6379/0"),
+        "LOCATION": REDIS_URL,
     }
 }
 
@@ -120,7 +125,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [env("REDIS_URL", default="redis://localhost:6379/0")],
+            "hosts": [REDIS_URL],
         },
     },
 }
@@ -229,12 +234,12 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
+        "json": {
+            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+        },
         "verbose": {
             "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
-        },
-        "simple": {
-            "format": "{levelname} {message}",
             "style": "{",
         },
     },
@@ -251,7 +256,17 @@ LOGGING = {
     "loggers": {
         "django": {
             "handlers": ["console"],
-            "level": env("DJANGO_LOG_LEVEL", default="INFO"),
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "apps": {
+            "handlers": ["console"],
+            "level": "DEBUG",
             "propagate": False,
         },
     },

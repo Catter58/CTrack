@@ -2,7 +2,7 @@
  * Store for backlog management
  */
 
-import { writable, derived } from "svelte/store";
+import { writable, derived, get } from "svelte/store";
 import api from "$lib/api/client";
 
 export interface BacklogIssue {
@@ -107,17 +107,9 @@ function createBacklogStore() {
     },
 
     async loadMore() {
-      let currentState: BacklogState | null = null;
-      const unsubscribe = subscribe((s) => {
-        currentState = s;
-      });
-      unsubscribe();
+      const currentState = get({ subscribe });
 
-      if (
-        !currentState ||
-        currentState.isLoadingMore ||
-        !currentState.hasMore
-      ) {
+      if (currentState.isLoadingMore || !currentState.hasMore) {
         return [];
       }
 

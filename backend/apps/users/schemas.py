@@ -18,6 +18,7 @@ class UserSchema(Schema):
     bio: str = ""
     timezone: str = "Europe/Moscow"
     is_active: bool = True
+    is_staff: bool = False
 
     @staticmethod
     def resolve_full_name(obj) -> str:

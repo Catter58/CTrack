@@ -469,6 +469,14 @@ def list_issues(
     page_size: int = 20,
 ):
     """Get issues for project with optional filters and pagination."""
+    # Validate and cap page_size
+    if page_size < 1:
+        page_size = 20
+    if page_size > 100:
+        page_size = 100
+    if page < 1:
+        page = 1
+
     project = ProjectService.get_project_by_key(key)
 
     if not project:
@@ -836,6 +844,15 @@ def get_backlog(
     offset: int = 0,
 ):
     """Get backlog issues (not in active/planned sprints)."""
+    # Validate and cap limit
+    if limit is not None:
+        if limit < 1:
+            limit = 50
+        if limit > 100:
+            limit = 100
+    if offset < 0:
+        offset = 0
+
     project = ProjectService.get_project_by_key(key)
 
     if not project:

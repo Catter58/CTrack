@@ -5,6 +5,8 @@ Issue models for CTrack.
 import uuid
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 from simple_history.models import HistoricalRecords
 
@@ -226,6 +228,9 @@ class Issue(models.Model):
     created_at = models.DateTimeField("Создана", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлена", auto_now=True)
 
+    # Full-text search vector
+    search_vector = SearchVectorField("Поисковый вектор", null=True)
+
     # История изменений
     history = HistoricalRecords()
 
@@ -238,6 +243,10 @@ class Issue(models.Model):
             models.Index(fields=["project", "assignee"]),
             models.Index(fields=["project", "issue_type"]),
             models.Index(fields=["project", "issue_number"]),
+            models.Index(fields=["project", "sprint"]),
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["updated_at"]),
+            GinIndex(fields=["search_vector"], name="issue_search_idx"),
         ]
 
     def __str__(self):

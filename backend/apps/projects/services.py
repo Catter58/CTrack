@@ -5,12 +5,18 @@ Project service layer.
 from typing import Any
 from uuid import UUID
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.users.models import User
 
 from .models import Project, ProjectMembership, ProjectRole, SavedFilter
+
+# Cache timeout constants (in seconds)
+CACHE_TIMEOUT_SHORT = 60  # 1 minute
+CACHE_TIMEOUT_MEDIUM = 300  # 5 minutes
+CACHE_TIMEOUT_LONG = 900  # 15 minutes
 
 
 class ProjectService:
@@ -100,7 +106,9 @@ class ProjectService:
         user: User, include_archived: bool = False
     ) -> QuerySet[Project]:
         """Get all projects where user is a member."""
-        queryset = Project.objects.filter(memberships__user=user)
+        queryset = Project.objects.filter(memberships__user=user).select_related(
+            "owner"
+        )
 
         if not include_archived:
             queryset = queryset.filter(is_archived=False)
@@ -110,12 +118,12 @@ class ProjectService:
     @staticmethod
     def get_project_by_key(key: str) -> Project | None:
         """Get project by key."""
-        return Project.objects.filter(key=key.upper()).first()
+        return Project.objects.filter(key=key.upper()).select_related("owner").first()
 
     @staticmethod
     def get_project_by_id(project_id: UUID) -> Project | None:
         """Get project by ID."""
-        return Project.objects.filter(id=project_id).first()
+        return Project.objects.filter(id=project_id).select_related("owner").first()
 
     @staticmethod
     def update_project(
@@ -290,3 +298,65 @@ class ProjectService:
     @staticmethod
     def delete_saved_filter(saved_filter: SavedFilter) -> None:
         saved_filter.delete()
+
+    # Cached data methods
+
+    @staticmethod
+    def get_project_statuses(project_id: UUID) -> list[dict]:
+        """
+        Get cached project statuses.
+
+        Returns list of status dicts for the project (including global statuses).
+        Cached for 5 minutes.
+        """
+        from apps.issues.models import Status
+
+        cache_key = f"project_statuses:{project_id}"
+        statuses = cache.get(cache_key)
+        if statuses is None:
+            from django.db.models import Q
+
+            statuses = list(
+                Status.objects.filter(
+                    Q(project_id=project_id) | Q(project__isnull=True)
+                )
+                .order_by("order")
+                .values("id", "name", "category", "color", "order")
+            )
+            cache.set(cache_key, statuses, CACHE_TIMEOUT_MEDIUM)
+        return statuses
+
+    @staticmethod
+    def get_project_issue_types(project_id: UUID) -> list[dict]:
+        """
+        Get cached project issue types.
+
+        Returns list of issue type dicts for the project (including global types).
+        Cached for 5 minutes.
+        """
+        from apps.issues.models import IssueType
+
+        cache_key = f"project_types:{project_id}"
+        types = cache.get(cache_key)
+        if types is None:
+            from django.db.models import Q
+
+            types = list(
+                IssueType.objects.filter(
+                    Q(project_id=project_id) | Q(project__isnull=True)
+                )
+                .order_by("order")
+                .values("id", "name", "icon", "color", "is_subtask", "is_epic", "order")
+            )
+            cache.set(cache_key, types, CACHE_TIMEOUT_MEDIUM)
+        return types
+
+    @staticmethod
+    def invalidate_project_cache(project_id: UUID) -> None:
+        """
+        Invalidate all cached data for a project.
+
+        Call this when statuses or issue types are modified.
+        """
+        cache.delete(f"project_statuses:{project_id}")
+        cache.delete(f"project_types:{project_id}")

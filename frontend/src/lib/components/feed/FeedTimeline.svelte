@@ -75,8 +75,8 @@
 
 <div class="feed-timeline">
 	{#if isLoading}
+		{@const skeletonItems = [0, 1, 2, 3, 4]}
 		<div class="skeleton-container">
-			{@const skeletonItems = [0, 1, 2, 3, 4]}
 			{#each skeletonItems as i}
 				<div class="skeleton-item" style="--delay: {i * 0.1}s">
 					<div class="skeleton-icon">

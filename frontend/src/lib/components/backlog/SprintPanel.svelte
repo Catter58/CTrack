@@ -11,9 +11,10 @@
 		CircleFilled
 	} from 'carbon-icons-svelte';
 	import type { Sprint, SprintWithStats, SprintIssue } from '$lib/stores/sprints';
-	import type { ComponentType } from 'svelte';
+	import type { Component } from 'svelte';
+	import type { CarbonIconProps } from 'carbon-icons-svelte';
 
-	const issueTypeIcons: Record<string, ComponentType> = {
+	const issueTypeIcons: Record<string, Component<CarbonIconProps>> = {
 		task: Task,
 		story: CircleFilled,
 		epic: Epic,

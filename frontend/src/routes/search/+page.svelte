@@ -61,7 +61,7 @@
 		try {
 			const data = await api.get<GlobalSearchResults>('/api/search', {
 				q: query,
-				limit: '100'
+				limit: '50'
 			});
 
 			results = {

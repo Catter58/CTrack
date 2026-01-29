@@ -2,11 +2,12 @@
 Server-Sent Events (SSE) API endpoint for real-time updates.
 """
 
+import asyncio
 import json
 import time
 from uuid import UUID
 
-import redis
+import redis.asyncio as redis
 from django.conf import settings
 from django.http import StreamingHttpResponse
 from ninja import Router
@@ -30,7 +31,7 @@ def format_sse(data: dict) -> str:
 
 
 @router.get("/events")
-def event_stream(request, project_id: UUID = None):
+async def event_stream(request, project_id: UUID = None):
     """
     SSE endpoint for real-time updates.
 
@@ -49,14 +50,14 @@ def event_stream(request, project_id: UUID = None):
     - heartbeat - keep-alive signal (every 30 seconds)
     """
 
-    def event_generator():
+    async def event_generator():
         redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
         r = redis.Redis.from_url(redis_url)
         pubsub = r.pubsub()
 
-        # Get user's projects
+        # Get user's projects (sync call, but fast)
         user = request.auth
-        project_ids = get_user_project_ids(user)
+        project_ids = await asyncio.to_thread(get_user_project_ids, user)
 
         # Build channel list
         if project_id:
@@ -68,16 +69,20 @@ def event_stream(request, project_id: UUID = None):
                 yield format_sse(
                     {"type": "error", "message": "Access denied to project"}
                 )
+                await pubsub.close()
+                await r.close()
                 return
         else:
             channels = [f"project:{pid}" for pid in project_ids]
 
         if not channels:
             yield format_sse({"type": "error", "message": "No projects available"})
+            await pubsub.close()
+            await r.close()
             return
 
         # Subscribe to channels
-        pubsub.subscribe(*channels)
+        await pubsub.subscribe(*channels)
 
         # Send initial connection event
         yield format_sse(
@@ -89,12 +94,25 @@ def event_stream(request, project_id: UUID = None):
         )
 
         last_heartbeat = time.time()
-        timeout = 1.0  # Check for messages every second
+        max_connection_time = 3600  # 1 hour max connection
+        start_time = time.time()
 
         try:
             while True:
-                # Check for messages with timeout
-                message = pubsub.get_message(timeout=timeout)
+                # Check for max connection time
+                if time.time() - start_time > max_connection_time:
+                    yield format_sse(
+                        {"type": "timeout", "message": "Connection timeout"}
+                    )
+                    break
+
+                # Check for messages with short timeout (non-blocking)
+                try:
+                    message = await asyncio.wait_for(
+                        pubsub.get_message(ignore_subscribe_messages=True), timeout=1.0
+                    )
+                except TimeoutError:
+                    message = None
 
                 # Send heartbeat every 30 seconds
                 current_time = time.time()
@@ -103,6 +121,8 @@ def event_stream(request, project_id: UUID = None):
                     last_heartbeat = current_time
 
                 if message is None:
+                    # Yield empty to allow checking for client disconnect
+                    await asyncio.sleep(0.1)
                     continue
 
                 if message["type"] == "message":
@@ -113,12 +133,13 @@ def event_stream(request, project_id: UUID = None):
                         # Skip invalid messages
                         continue
 
-        except GeneratorExit:
+        except (GeneratorExit, asyncio.CancelledError):
             # Client disconnected
             pass
         finally:
-            pubsub.unsubscribe()
-            pubsub.close()
+            await pubsub.unsubscribe()
+            await pubsub.close()
+            await r.close()
 
     response = StreamingHttpResponse(
         event_generator(),

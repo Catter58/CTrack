@@ -24,6 +24,51 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  /**
+   * Extract error message from API response
+   */
+  private extractErrorMessage(error: unknown, status: number): string {
+    if (!error || typeof error !== "object") {
+      return `HTTP ${status}`;
+    }
+
+    const err = error as Record<string, unknown>;
+
+    // Handle Pydantic validation errors (array of objects)
+    if (Array.isArray(err.detail)) {
+      const messages = err.detail.map((e: unknown) => {
+        if (typeof e === "object" && e !== null && "msg" in e) {
+          return (e as { msg: string }).msg;
+        }
+        return String(e);
+      });
+      return messages.join("; ");
+    }
+
+    // Handle string detail
+    if (typeof err.detail === "string") {
+      return err.detail;
+    }
+
+    // Handle object detail with message
+    if (typeof err.detail === "object" && err.detail !== null) {
+      const detail = err.detail as Record<string, unknown>;
+      if ("message" in detail && typeof detail.message === "string") {
+        return detail.message;
+      }
+      if ("msg" in detail && typeof detail.msg === "string") {
+        return detail.msg;
+      }
+    }
+
+    // Handle top-level message
+    if (typeof err.message === "string") {
+      return err.message;
+    }
+
+    return `HTTP ${status}`;
+  }
+
   setToken(token: string | null) {
     this.token = token;
   }
@@ -85,7 +130,9 @@ class ApiClient {
           const error = await retryResponse
             .json()
             .catch(() => ({ detail: "Ошибка сервера" }));
-          throw new Error(error.detail || `HTTP ${retryResponse.status}`);
+          throw new Error(
+            this.extractErrorMessage(error, retryResponse.status),
+          );
         }
 
         return retryResponse.json();
@@ -100,7 +147,7 @@ class ApiClient {
       const error = await response
         .json()
         .catch(() => ({ detail: "Ошибка сервера" }));
-      throw new Error(error.detail || `HTTP ${response.status}`);
+      throw new Error(this.extractErrorMessage(error, response.status));
     }
 
     // Handle 204 No Content responses
@@ -204,7 +251,9 @@ class ApiClient {
           const error = await retryResponse
             .json()
             .catch(() => ({ detail: "Ошибка сервера" }));
-          throw new Error(error.detail || `HTTP ${retryResponse.status}`);
+          throw new Error(
+            this.extractErrorMessage(error, retryResponse.status),
+          );
         }
 
         return retryResponse.json();
@@ -218,7 +267,7 @@ class ApiClient {
       const error = await response
         .json()
         .catch(() => ({ detail: "Ошибка сервера" }));
-      throw new Error(error.detail || `HTTP ${response.status}`);
+      throw new Error(this.extractErrorMessage(error, response.status));
     }
 
     return response.json();
@@ -260,7 +309,7 @@ class ApiClient {
       const error = await response
         .json()
         .catch(() => ({ detail: "Ошибка скачивания файла" }));
-      throw new Error(error.detail || `HTTP ${response.status}`);
+      throw new Error(this.extractErrorMessage(error, response.status));
     }
 
     // Create blob and trigger download

@@ -2,6 +2,7 @@
 Issues API endpoints.
 """
 
+from datetime import date
 from uuid import UUID
 
 from django.http import FileResponse
@@ -18,6 +19,7 @@ from apps.issues.schemas import (
     CommentSchema,
     CommentUpdateSchema,
     EpicSchema,
+    GlobalIssuePaginatedResponseSchema,
     IssueCreateSchema,
     IssueDetailSchema,
     IssueListSchema,
@@ -297,6 +299,95 @@ def delete_status(request, status_id: UUID):
 # Issues endpoints
 
 
+@router.get(
+    "/issues",
+    response={200: GlobalIssuePaginatedResponseSchema},
+)
+def list_global_issues(
+    request,
+    project_id: UUID = None,
+    status_id: UUID = None,
+    assignee_id: int = None,
+    reporter_id: int = None,
+    priority: str = None,
+    issue_type_id: UUID = None,
+    sprint_id: UUID = None,
+    due_date_from: date = None,
+    due_date_to: date = None,
+    created_from: date = None,
+    created_to: date = None,
+    search: str = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    page: int = 1,
+    page_size: int = 20,
+):
+    """
+    Get all issues from projects where the current user is a member.
+
+    Supports filtering, sorting and pagination.
+
+    Query parameters:
+    - project_id: Filter by specific project UUID
+    - status_id: Filter by status UUID
+    - assignee_id: Filter by assignee user ID (use 0 for unassigned)
+    - reporter_id: Filter by reporter user ID
+    - priority: Filter by priority (highest, high, medium, low, lowest)
+    - issue_type_id: Filter by issue type UUID
+    - sprint_id: Filter by sprint UUID
+    - due_date_from, due_date_to: Filter by due date range
+    - created_from, created_to: Filter by creation date range
+    - search: Search in title and key
+    - sort_by: Sort field (created_at, updated_at, due_date, priority)
+    - sort_order: Sort order (asc, desc)
+    - page: Page number (default 1)
+    - page_size: Items per page (default 20, max 100)
+    """
+    # Validate and cap page_size
+    if page_size < 1:
+        page_size = 20
+    if page_size > 100:
+        page_size = 100
+    if page < 1:
+        page = 1
+
+    # Validate sort_order
+    if sort_order not in ("asc", "desc"):
+        sort_order = "desc"
+
+    issues = IssueService.get_global_issues(
+        user=request.auth,
+        project_id=project_id,
+        status_id=status_id,
+        assignee_id=assignee_id,
+        reporter_id=reporter_id,
+        priority=priority,
+        issue_type_id=issue_type_id,
+        sprint_id=sprint_id,
+        due_date_from=due_date_from,
+        due_date_to=due_date_to,
+        created_from=created_from,
+        created_to=created_to,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    # Get total count before pagination
+    total = issues.count()
+
+    # Apply pagination
+    offset = (page - 1) * page_size
+    paginated_issues = list(issues[offset : offset + page_size])
+
+    return 200, {
+        "items": paginated_issues,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
 @router.post(
     "/projects/{key}/issues",
     response={
@@ -478,7 +569,6 @@ def update_issue(request, issue_key: str, data: IssueUpdateSchema):
         return 403, {"detail": "Недостаточно прав для редактирования задач"}
 
     # Check workflow if status is being changed
-    old_status = issue.status
     if data.status_id and data.status_id != issue.status_id:
         if not IssueService.can_transition(issue, data.status_id, request.auth):
             return 400, {"detail": "Недопустимый переход статуса"}
@@ -492,19 +582,7 @@ def update_issue(request, issue_key: str, data: IssueUpdateSchema):
             return 400, {"detail": error}
 
     update_data = data.dict(exclude_unset=True)
-    updated_issue = IssueService.update_issue(issue, **update_data)
-
-    # Log status change activity if status was changed
-    if data.status_id and data.status_id != old_status.id:
-        new_status = updated_issue.status
-        ActivityService.log_status_change(
-            updated_issue,
-            request.auth,
-            old_status.name,
-            new_status.name,
-            old_status.category,
-            new_status.category,
-        )
+    updated_issue = IssueService.update_issue(issue, user=request.auth, **update_data)
 
     # Add children stats for response
     stats = IssueService.get_children_stats(updated_issue)
@@ -970,5 +1048,5 @@ def delete_attachment(request, attachment_id: UUID):
     if not is_author and not is_admin:
         return 403, {"detail": "Только автор или админ может удалить вложение"}
 
-    IssueService.delete_attachment(attachment)
+    IssueService.delete_attachment(attachment, user=request.auth)
     return 204, None

@@ -85,6 +85,80 @@ class ActivityService:
         )
 
     @staticmethod
+    def log_unassignment(issue: Issue, user: User, old_assignee: str) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.UNASSIGNED,
+            "assignee",
+            {"name": old_assignee},
+            None,
+        )
+
+    @staticmethod
+    def log_priority_change(
+        issue: Issue, user: User, old_priority: str, new_priority: str
+    ) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.PRIORITY_CHANGED,
+            "priority",
+            {"value": old_priority},
+            {"value": new_priority},
+        )
+
+    @staticmethod
+    def log_due_date_change(
+        issue: Issue, user: User, old_date: str | None, new_date: str | None
+    ) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.DUE_DATE_CHANGED,
+            "due_date",
+            {"value": old_date} if old_date else None,
+            {"value": new_date} if new_date else None,
+        )
+
+    @staticmethod
+    def log_story_points_change(
+        issue: Issue, user: User, old_points: int | None, new_points: int | None
+    ) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.STORY_POINTS_CHANGED,
+            "story_points",
+            {"value": old_points} if old_points is not None else None,
+            {"value": new_points} if new_points is not None else None,
+        )
+
+    @staticmethod
+    def log_attachment_added(issue: Issue, user: User, filename: str) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.ATTACHMENT_ADDED,
+            "attachment",
+            None,
+            {"filename": filename},
+        )
+
+    @staticmethod
+    def log_attachment_removed(
+        issue: Issue, user: User, filename: str
+    ) -> IssueActivity:
+        return ActivityService.log(
+            issue,
+            user,
+            ActivityAction.ATTACHMENT_REMOVED,
+            "attachment",
+            {"filename": filename},
+            None,
+        )
+
+    @staticmethod
     def log_comment(issue: Issue, user: User) -> IssueActivity:
         return ActivityService.log(issue, user, ActivityAction.COMMENTED)
 
@@ -192,6 +266,9 @@ class IssueService:
             custom_fields=custom_fields or {},
         )
         issue.save()
+
+        # Log creation activity
+        ActivityService.log_creation(issue, user)
 
         return issue
 
@@ -307,8 +384,16 @@ class IssueService:
         )
 
     @staticmethod
-    def update_issue(issue: Issue, **kwargs) -> Issue:
-        """Update issue fields."""
+    @transaction.atomic
+    def update_issue(issue: Issue, user: User | None = None, **kwargs) -> Issue:
+        """Update issue fields with activity logging."""
+        # Capture old values for activity logging
+        old_status = issue.status
+        old_assignee = issue.assignee
+        old_priority = issue.priority
+        old_due_date = issue.due_date
+        old_story_points = issue.story_points
+
         for field, value in kwargs.items():
             if value is not None:
                 if field == "issue_type_id":
@@ -325,6 +410,57 @@ class IssueService:
                     setattr(issue, field, value)
 
         issue.save()
+
+        # Log activities if user is provided
+        if user:
+            # Reload related objects to get updated names
+            issue.refresh_from_db()
+
+            # Status change
+            if "status_id" in kwargs and old_status.id != issue.status_id:
+                ActivityService.log_status_change(
+                    issue,
+                    user,
+                    old_status.name,
+                    issue.status.name,
+                    old_status.category,
+                    issue.status.category,
+                )
+
+            # Assignee change
+            if "assignee_id" in kwargs:
+                old_name = old_assignee.get_full_name() if old_assignee else None
+                new_name = issue.assignee.get_full_name() if issue.assignee else None
+
+                if old_name != new_name:
+                    if new_name is None and old_name:
+                        # Unassigned
+                        ActivityService.log_unassignment(issue, user, old_name)
+                    else:
+                        # Assigned or reassigned
+                        ActivityService.log_assignment(issue, user, old_name, new_name)
+
+            # Priority change
+            if "priority" in kwargs and old_priority != issue.priority:
+                ActivityService.log_priority_change(
+                    issue, user, old_priority, issue.priority
+                )
+
+            # Due date change
+            if "due_date" in kwargs:
+                old_date_str = old_due_date.isoformat() if old_due_date else None
+                new_date_str = issue.due_date.isoformat() if issue.due_date else None
+                if old_date_str != new_date_str:
+                    ActivityService.log_due_date_change(
+                        issue, user, old_date_str, new_date_str
+                    )
+
+            # Story points change
+            if "story_points" in kwargs and old_story_points != issue.story_points:
+                ActivityService.log_story_points_change(
+                    issue, user, old_story_points, issue.story_points
+                )
+
         return issue
 
     @staticmethod
@@ -339,7 +475,9 @@ class IssueService:
 
     @staticmethod
     def add_comment(issue: Issue, user: User, content: str) -> IssueComment:
-        return IssueComment.objects.create(issue=issue, author=user, content=content)
+        comment = IssueComment.objects.create(issue=issue, author=user, content=content)
+        ActivityService.log_comment(issue, user)
+        return comment
 
     @staticmethod
     def update_comment(comment: IssueComment, content: str) -> IssueComment:
@@ -759,7 +897,7 @@ class IssueService:
         content_type: str,
     ) -> IssueAttachment:
         """Create a new attachment for an issue."""
-        return IssueAttachment.objects.create(
+        attachment = IssueAttachment.objects.create(
             issue=issue,
             uploaded_by=user,
             file=file,
@@ -767,6 +905,8 @@ class IssueService:
             file_size=file.size,
             content_type=content_type,
         )
+        ActivityService.log_attachment_added(issue, user, filename)
+        return attachment
 
     @staticmethod
     def get_attachment_by_id(attachment_id: UUID) -> IssueAttachment | None:
@@ -778,8 +918,14 @@ class IssueService:
         )
 
     @staticmethod
-    def delete_attachment(attachment: IssueAttachment) -> None:
+    def delete_attachment(
+        attachment: IssueAttachment, user: User | None = None
+    ) -> None:
         """Delete an attachment and its file."""
+        if user:
+            ActivityService.log_attachment_removed(
+                attachment.issue, user, attachment.filename
+            )
         attachment.file.delete(save=False)
         attachment.delete()
 
@@ -787,3 +933,103 @@ class IssueService:
     def get_attachments(issue: Issue) -> QuerySet[IssueAttachment]:
         """Get all attachments for an issue."""
         return issue.attachments.select_related("uploaded_by").order_by("-created_at")
+
+    @staticmethod
+    def get_global_issues(
+        user: User,
+        project_id: UUID | None = None,
+        status_id: UUID | None = None,
+        assignee_id: int | None = None,
+        reporter_id: int | None = None,
+        priority: str | None = None,
+        issue_type_id: UUID | None = None,
+        sprint_id: UUID | None = None,
+        due_date_from=None,
+        due_date_to=None,
+        created_from=None,
+        created_to=None,
+        search: str | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+    ) -> QuerySet[Issue]:
+        """
+        Get issues from all projects where user is a member.
+
+        Supports filtering by various criteria and sorting.
+        """
+        # Get projects where user is a member
+        user_project_ids = ProjectMembership.objects.filter(user=user).values_list(
+            "project_id", flat=True
+        )
+
+        # Base queryset with select_related for performance
+        queryset = Issue.objects.filter(project_id__in=user_project_ids).select_related(
+            "issue_type",
+            "status",
+            "assignee",
+            "reporter",
+            "project",
+        )
+
+        # Apply filters
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+        if status_id:
+            queryset = queryset.filter(status_id=status_id)
+        if assignee_id is not None:
+            if assignee_id == 0:
+                queryset = queryset.filter(assignee__isnull=True)
+            else:
+                queryset = queryset.filter(assignee_id=assignee_id)
+        if reporter_id:
+            queryset = queryset.filter(reporter_id=reporter_id)
+        if priority:
+            queryset = queryset.filter(priority=priority)
+        if issue_type_id:
+            queryset = queryset.filter(issue_type_id=issue_type_id)
+        if sprint_id:
+            queryset = queryset.filter(sprint_id=sprint_id)
+        if due_date_from:
+            queryset = queryset.filter(due_date__gte=due_date_from)
+        if due_date_to:
+            queryset = queryset.filter(due_date__lte=due_date_to)
+        if created_from:
+            queryset = queryset.filter(created_at__date__gte=created_from)
+        if created_to:
+            queryset = queryset.filter(created_at__date__lte=created_to)
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(key__icontains=search)
+            )
+
+        # Apply sorting
+        valid_sort_fields = {"created_at", "updated_at", "due_date", "priority"}
+        if sort_by not in valid_sort_fields:
+            sort_by = "created_at"
+
+        # For priority, use custom ordering
+        if sort_by == "priority":
+            from django.db.models import Case, IntegerField, Value, When
+
+            priority_order = Case(
+                When(priority="highest", then=Value(1)),
+                When(priority="high", then=Value(2)),
+                When(priority="medium", then=Value(3)),
+                When(priority="low", then=Value(4)),
+                When(priority="lowest", then=Value(5)),
+                default=Value(3),
+                output_field=IntegerField(),
+            )
+            if sort_order == "desc":
+                queryset = queryset.annotate(priority_order=priority_order).order_by(
+                    "-priority_order"
+                )
+            else:
+                queryset = queryset.annotate(priority_order=priority_order).order_by(
+                    "priority_order"
+                )
+        else:
+            order_prefix = "-" if sort_order == "desc" else ""
+            queryset = queryset.order_by(f"{order_prefix}{sort_by}")
+
+        return queryset

@@ -257,3 +257,39 @@ class AttachmentSchema(Schema):
     content_type: str
     uploaded_by: UserSchema | None
     created_at: datetime
+
+
+class ProjectInfoSchema(Schema):
+    """Schema for minimal project info in global issues list."""
+
+    id: UUID
+    key: str
+    name: str
+
+
+class GlobalIssueListSchema(Schema):
+    """Schema for global issue list item with project info."""
+
+    id: UUID
+    key: str
+    title: str
+    priority: str
+    story_points: int | None
+    due_date: date | None
+    created_at: datetime
+    updated_at: datetime
+    issue_type: IssueTypeSchema
+    status: StatusSchema
+    epic_id: UUID | None = None
+    assignee: UserSchema | None
+    reporter: UserSchema
+    project: ProjectInfoSchema
+
+
+class GlobalIssuePaginatedResponseSchema(Schema):
+    """Paginated response for global issues list."""
+
+    items: list[GlobalIssueListSchema]
+    total: int
+    page: int
+    page_size: int

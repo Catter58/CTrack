@@ -291,10 +291,15 @@ class ActivityAction(models.TextChoices):
     UPDATED = "updated", "Обновлена"
     STATUS_CHANGED = "status_changed", "Изменён статус"
     ASSIGNED = "assigned", "Назначен исполнитель"
+    UNASSIGNED = "unassigned", "Снят исполнитель"
     COMMENTED = "commented", "Добавлен комментарий"
     SPRINT_CHANGED = "sprint_changed", "Изменён спринт"
     TYPE_CHANGED = "type_changed", "Изменён тип"
     PRIORITY_CHANGED = "priority_changed", "Изменён приоритет"
+    DUE_DATE_CHANGED = "due_date_changed", "Изменён срок"
+    STORY_POINTS_CHANGED = "story_points_changed", "Изменены Story Points"
+    ATTACHMENT_ADDED = "attachment_added", "Добавлено вложение"
+    ATTACHMENT_REMOVED = "attachment_removed", "Удалено вложение"
 
 
 class IssueActivity(models.Model):
@@ -328,6 +333,8 @@ class IssueActivity(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["issue", "-created_at"]),
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["user", "created_at"]),
         ]
 
     def __str__(self):

@@ -9,6 +9,7 @@ from ninja import NinjaAPI
 from api.auth import router as auth_router
 from api.boards import router as boards_router
 from api.custom_fields import router as custom_fields_router
+from api.feed import router as feed_router
 from api.health import router as health_router
 from api.issues import router as issues_router
 from api.projects import router as projects_router
@@ -53,3 +54,6 @@ api.add_router("", reports_router, tags=["Reports"])
 
 # Custom Fields endpoints
 api.add_router("", custom_fields_router, tags=["Custom Fields"])
+
+# Feed endpoints
+api.add_router("", feed_router, tags=["Feed"])

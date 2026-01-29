@@ -84,6 +84,8 @@
 		<HeaderNav>
 			<HeaderNavItem href="/" text="Главная" />
 			<HeaderNavItem href="/projects" text="Проекты" />
+			<HeaderNavItem href="/tasks" text="Задачи" />
+			<HeaderNavItem href="/feed" text="Лента" />
 		</HeaderNav>
 
 		<HeaderUtilities>

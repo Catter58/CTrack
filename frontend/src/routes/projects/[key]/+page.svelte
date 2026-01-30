@@ -295,6 +295,7 @@
 
 	// Check for create param in URL (e.g., ?create=epic)
 	let createParam = $derived(page.url.searchParams.get('create'));
+	let createParamHandled = $state(false);
 
 	// Set default issue type when loaded
 	$effect(() => {
@@ -306,14 +307,24 @@
 
 	// Handle create param from URL (e.g., ?create=epic)
 	$effect(() => {
-		if (createParam && $issueTypes.length > 0 && !showCreateIssueModal) {
-			// Find the requested issue type
-			const typeName = createParam === 'epic' ? 'Эпик' : createParam;
-			const requestedType = $issueTypes.find(
-				(t) => t.name.toLowerCase() === typeName.toLowerCase()
-			);
+		const param = createParam;
+		const types = $issueTypes;
+
+		if (param && types.length > 0 && !createParamHandled) {
+			let requestedType;
+
+			if (param === 'epic') {
+				// For epic, look for issue type with is_epic flag
+				requestedType = types.find((t) => t.is_epic);
+			} else {
+				// For other types, match by name
+				requestedType = types.find(
+					(t) => t.name.toLowerCase() === param.toLowerCase()
+				);
+			}
 
 			if (requestedType) {
+				createParamHandled = true;
 				newIssueTypeId = requestedType.id;
 				showCreateIssueModal = true;
 
@@ -322,6 +333,11 @@
 				url.searchParams.delete('create');
 				goto(url.toString(), { replaceState: true, noScroll: true });
 			}
+		}
+
+		// Reset flag when param is cleared
+		if (!param) {
+			createParamHandled = false;
 		}
 	});
 

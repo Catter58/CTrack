@@ -8,6 +8,7 @@
       "icon": "target",
       "color": "#8a3ffc",
       "is_subtask": false,
+      "is_epic": true,
       "parent_types": [],
       "order": 1
     }

@@ -175,6 +175,7 @@ def _create_default_issue_types(template: str) -> None:
                 "icon": "target",
                 "color": "#8a3ffc",
                 "is_subtask": False,
+                "is_epic": True,
                 "order": 1,
             },
             {

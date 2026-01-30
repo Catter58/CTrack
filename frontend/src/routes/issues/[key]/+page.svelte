@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		Breadcrumb,
@@ -69,7 +69,6 @@
 
 	// Track loading state with version to handle race conditions
 	let currentLoadVersion = $state(0);
-	let lastLoadedKey = $state<string | null>(null);
 
 	// Edit mode
 	let isEditing = $state(false);
@@ -188,18 +187,18 @@
 		}
 	}
 
+	// Track which key is currently being loaded to prevent duplicate loads
+	let loadingKey = $state<string | null>(null);
+
 	// Load issue data
 	async function loadIssueData(key: string) {
-		// Skip if already loaded this key
-		if (lastLoadedKey === key) {
+		// Skip if already loading this key
+		if (loadingKey === key) {
 			return;
 		}
 
-		// Increment version to cancel any in-flight requests
+		loadingKey = key;
 		const loadVersion = ++currentLoadVersion;
-
-		// Reset store immediately for responsive UI
-		issue.reset();
 
 		const projectKey = key?.split('-')[0];
 		const loadedIssue = await issue.load(key);
@@ -223,23 +222,32 @@
 			loadEditingStatus(key)
 		]);
 
-		// Mark as loaded only if still current
+		// Clear loading key when done (only if still current)
 		if (loadVersion === currentLoadVersion) {
-			lastLoadedKey = key;
+			loadingKey = null;
 		}
 	}
 
-	// Use $effect to reactively load data when issueKey changes
-	$effect(() => {
-		const key = issueKey;
-		if (key) {
-			loadIssueData(key);
-		}
-	});
-
+	// Handle initial page load
 	onMount(() => {
+		if (issueKey) {
+			loadIssueData(issueKey);
+		}
+
 		// Subscribe to editing events
 		unsubscribeEditing = events.on('issue.editing', handleEditingEvent);
+	});
+
+	// Use afterNavigate to handle client-side navigation between issues
+	afterNavigate((navigation) => {
+		// Skip if this is the initial page load (handled by onMount)
+		if (navigation.from === null) {
+			return;
+		}
+
+		if (issueKey) {
+			loadIssueData(issueKey);
+		}
 	});
 
 	onDestroy(() => {
@@ -260,11 +268,9 @@
 			unsubscribeEditing = null;
 		}
 
-		// Reset loading state and increment version to cancel any in-flight loads
-		currentLoadVersion++;
-		lastLoadedKey = null;
-
-		issue.reset();
+		// Note: Do NOT call issue.reset() here!
+		// The store is shared, and the new component instance may have already loaded data.
+		// Calling reset here would clear that data.
 	});
 
 	function startEdit() {
@@ -529,7 +535,7 @@
 	<title>{$currentIssue?.key || issueKey} - CTrack</title>
 </svelte:head>
 
-{#if $issueLoading || lastLoadedKey !== issueKey}
+{#if $issueLoading || ($currentIssue && $currentIssue.key !== issueKey)}
 	<div class="loading-container">
 		<Loading withOverlay={false} />
 	</div>
@@ -542,7 +548,7 @@
 			on:close={() => issue.clearError()}
 		/>
 	</div>
-{:else if $currentIssue}
+{:else if $currentIssue && $currentIssue.key === issueKey}
 	{@const projectKey = issueKey.split('-')[0]}
 	<div class="issue-page">
 		<Breadcrumb noTrailingSlash>

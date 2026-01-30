@@ -4,10 +4,11 @@
     "pk": "00000000-0000-0000-0000-000000000001",
     "fields": {
       "project": null,
-      "name": "Epic",
+      "name": "Эпик",
       "icon": "target",
       "color": "#8a3ffc",
       "is_subtask": false,
+      "is_epic": true,
       "parent_types": [],
       "order": 1
     }
@@ -17,10 +18,11 @@
     "pk": "00000000-0000-0000-0000-000000000002",
     "fields": {
       "project": null,
-      "name": "Story",
+      "name": "История",
       "icon": "book",
       "color": "#0f62fe",
       "is_subtask": false,
+      "is_epic": false,
       "parent_types": ["00000000-0000-0000-0000-000000000001"],
       "order": 2
     }
@@ -30,10 +32,11 @@
     "pk": "00000000-0000-0000-0000-000000000003",
     "fields": {
       "project": null,
-      "name": "Task",
+      "name": "Задача",
       "icon": "checkmark",
       "color": "#1192e8",
       "is_subtask": false,
+      "is_epic": false,
       "parent_types": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"],
       "order": 3
     }
@@ -43,11 +46,12 @@
     "pk": "00000000-0000-0000-0000-000000000004",
     "fields": {
       "project": null,
-      "name": "Bug",
+      "name": "Баг",
       "icon": "debug",
       "color": "#da1e28",
       "is_subtask": false,
-      "parent_types": [],
+      "is_epic": false,
+      "parent_types": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"],
       "order": 4
     }
   },
@@ -56,10 +60,11 @@
     "pk": "00000000-0000-0000-0000-000000000005",
     "fields": {
       "project": null,
-      "name": "Subtask",
+      "name": "Подзадача",
       "icon": "subtract",
       "color": "#6f6f6f",
       "is_subtask": true,
+      "is_epic": false,
       "parent_types": ["00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"],
       "order": 5
     }
@@ -69,7 +74,7 @@
     "pk": "00000000-0000-0000-0001-000000000001",
     "fields": {
       "project": null,
-      "name": "To Do",
+      "name": "К выполнению",
       "category": "todo",
       "color": "#6f6f6f",
       "order": 1
@@ -80,7 +85,7 @@
     "pk": "00000000-0000-0000-0001-000000000002",
     "fields": {
       "project": null,
-      "name": "In Progress",
+      "name": "В работе",
       "category": "in_progress",
       "color": "#0f62fe",
       "order": 2
@@ -91,7 +96,7 @@
     "pk": "00000000-0000-0000-0001-000000000003",
     "fields": {
       "project": null,
-      "name": "In Review",
+      "name": "На проверке",
       "category": "in_progress",
       "color": "#8a3ffc",
       "order": 3
@@ -102,7 +107,7 @@
     "pk": "00000000-0000-0000-0001-000000000004",
     "fields": {
       "project": null,
-      "name": "Done",
+      "name": "Готово",
       "category": "done",
       "color": "#198038",
       "order": 4

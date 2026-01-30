@@ -166,6 +166,26 @@ class TestProtectedEndpoints:
         # Should return 401 Unauthorized without auth
         assert response.status_code == 401
 
+    def test_protected_endpoints_require_auth(self, api_client: Client, db):
+        """
+        Security regression test for critical endpoints.
+
+        Verifies that projects, issues, and users endpoints all reject
+        unauthenticated requests with 401 status code.
+        """
+        critical_endpoints = [
+            "/api/projects",
+            "/api/issues",
+            "/api/users",
+        ]
+
+        for endpoint in critical_endpoints:
+            response = api_client.get(endpoint)
+            assert response.status_code == 401, (
+                f"Endpoint {endpoint} should require authentication but "
+                f"returned {response.status_code}"
+            )
+
 
 @pytest.mark.django_db
 class TestAuthenticatedAccess:

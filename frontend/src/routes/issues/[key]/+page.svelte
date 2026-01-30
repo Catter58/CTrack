@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { goto, afterNavigate } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		Breadcrumb,
@@ -67,9 +67,9 @@
 	// Reactive issue key from URL params
 	const issueKey = $derived(page.params.key!);
 
-	// Track the key we're currently loading to prevent double loads
-	let loadingKey = $state<string | null>(null);
-	let hasAttemptedLoad = $state(false);
+	// Track loading state with version to handle race conditions
+	let currentLoadVersion = $state(0);
+	let lastLoadedKey = $state<string | null>(null);
 
 	// Edit mode
 	let isEditing = $state(false);
@@ -190,14 +190,24 @@
 
 	// Load issue data
 	async function loadIssueData(key: string) {
-		// Skip if already loading this key
-		if (loadingKey === key && hasAttemptedLoad) return;
+		// Skip if already loaded this key
+		if (lastLoadedKey === key) {
+			return;
+		}
 
-		loadingKey = key;
-		hasAttemptedLoad = false;
+		// Increment version to cancel any in-flight requests
+		const loadVersion = ++currentLoadVersion;
+
+		// Reset store immediately for responsive UI
+		issue.reset();
 
 		const projectKey = key?.split('-')[0];
 		const loadedIssue = await issue.load(key);
+
+		// Check if this load is still current (another load might have started)
+		if (loadVersion !== currentLoadVersion) {
+			return;
+		}
 
 		await Promise.all([
 			issue.loadComments(key),
@@ -213,12 +223,15 @@
 			loadEditingStatus(key)
 		]);
 
-		hasAttemptedLoad = true;
+		// Mark as loaded only if still current
+		if (loadVersion === currentLoadVersion) {
+			lastLoadedKey = key;
+		}
 	}
 
-	// Use afterNavigate for reliable cross-browser navigation handling
-	afterNavigate(() => {
-		const key = page.params.key;
+	// Use $effect to reactively load data when issueKey changes
+	$effect(() => {
+		const key = issueKey;
 		if (key) {
 			loadIssueData(key);
 		}
@@ -227,12 +240,6 @@
 	onMount(() => {
 		// Subscribe to editing events
 		unsubscribeEditing = events.on('issue.editing', handleEditingEvent);
-
-		// Initial load on mount
-		const key = page.params.key;
-		if (key) {
-			loadIssueData(key);
-		}
 	});
 
 	onDestroy(() => {
@@ -253,9 +260,9 @@
 			unsubscribeEditing = null;
 		}
 
-		// Reset loading state for next navigation
-		loadingKey = null;
-		hasAttemptedLoad = false;
+		// Reset loading state and increment version to cancel any in-flight loads
+		currentLoadVersion++;
+		lastLoadedKey = null;
 
 		issue.reset();
 	});
@@ -522,7 +529,7 @@
 	<title>{$currentIssue?.key || issueKey} - CTrack</title>
 </svelte:head>
 
-{#if $issueLoading || !hasAttemptedLoad}
+{#if $issueLoading || lastLoadedKey !== issueKey}
 	<div class="loading-container">
 		<Loading withOverlay={false} />
 	</div>

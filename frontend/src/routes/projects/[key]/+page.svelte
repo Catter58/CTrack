@@ -293,11 +293,35 @@
 		]);
 	});
 
+	// Check for create param in URL (e.g., ?create=epic)
+	let createParam = $derived(page.url.searchParams.get('create'));
+
 	// Set default issue type when loaded
 	$effect(() => {
 		if ($issueTypes.length > 0 && !newIssueTypeId) {
 			const taskType = $issueTypes.find((t) => t.name === 'Задача');
 			newIssueTypeId = taskType?.id || $issueTypes[0]?.id || '';
+		}
+	});
+
+	// Handle create param from URL (e.g., ?create=epic)
+	$effect(() => {
+		if (createParam && $issueTypes.length > 0 && !showCreateIssueModal) {
+			// Find the requested issue type
+			const typeName = createParam === 'epic' ? 'Эпик' : createParam;
+			const requestedType = $issueTypes.find(
+				(t) => t.name.toLowerCase() === typeName.toLowerCase()
+			);
+
+			if (requestedType) {
+				newIssueTypeId = requestedType.id;
+				showCreateIssueModal = true;
+
+				// Clear the create param from URL
+				const url = new URL(page.url);
+				url.searchParams.delete('create');
+				goto(url.toString(), { replaceState: true, noScroll: true });
+			}
 		}
 	});
 

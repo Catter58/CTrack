@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Activity } from '$lib/stores/issue';
+	import { resolveMediaUrl } from '$lib/api/client';
 
 	interface Props {
 		activities: Activity[];
@@ -87,7 +88,11 @@
 			{#each activities as activity (activity.id)}
 				<div class="activity-item">
 					<div class="avatar">
-						{getUserInitials(activity.user)}
+						{#if activity.user?.avatar}
+							<img src={resolveMediaUrl(activity.user.avatar)} alt={getUserName(activity.user)} />
+						{:else}
+							{getUserInitials(activity.user)}
+						{/if}
 					</div>
 					<div class="activity-content">
 						<div class="activity-header">
@@ -150,6 +155,13 @@
 		font-size: 0.75rem;
 		font-weight: 600;
 		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	.activity-content {

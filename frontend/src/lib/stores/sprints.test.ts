@@ -20,19 +20,25 @@ import api from "$lib/api/client";
 
 const mockSprint: Sprint = {
   id: "sprint-1",
+  project_id: "test-project",
   name: "Sprint 1",
   goal: "Complete MVP",
   start_date: "2024-01-01",
   end_date: "2024-01-14",
   status: "planned",
+  initial_story_points: null,
+  completed_story_points: null,
+  created_at: "2024-01-01T00:00:00Z",
+  updated_at: "2024-01-01T00:00:00Z",
 };
 
 const mockSprintWithStats: SprintWithStats = {
   ...mockSprint,
   total_story_points: 20,
-  completed_story_points: 0,
-  issues_count: 5,
-  completed_issues_count: 0,
+  remaining_story_points: 20,
+  total_issues: 5,
+  completed_issues: 0,
+  remaining_issues: 5,
 };
 
 describe("sprints store", () => {

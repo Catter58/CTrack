@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Button,
 		Tile,
@@ -22,7 +21,7 @@
 	} from '$lib/stores/sprints';
 	import { SprintCard, SprintModal, SprintCompleteModal } from '$lib/components/sprints';
 
-	const projectKey = $derived($page.params.key);
+	const projectKey = $derived(page.params.key);
 
 	let showCreateModal = $state(false);
 	let showEditModal = $state(false);
@@ -42,11 +41,13 @@
 	}
 
 	onMount(async () => {
-		const key = get(page).params.key!;
+		const key = page.params.key;
+		if (!key) return;
 		await Promise.all([projects.loadProject(key), sprints.loadSprints(key)]);
 	});
 
 	async function handleCreateSprint(data: CreateSprintData | UpdateSprintData) {
+		if (!projectKey) return;
 		const sprint = await sprints.createSprint(projectKey, data as CreateSprintData);
 		if (sprint) {
 			showToast('Спринт создан');

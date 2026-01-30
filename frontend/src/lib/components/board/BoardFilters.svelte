@@ -33,6 +33,7 @@
 		selectedFilterId?: string;
 		onFilterChange: (filters: FilterValues) => void;
 		onSavedFilterSelect?: (filter: SavedFilter) => void;
+		onClear?: () => void;
 	}
 
 	let {
@@ -43,17 +44,19 @@
 		savedFilters = [],
 		selectedFilterId = '',
 		onFilterChange,
-		onSavedFilterSelect
+		onSavedFilterSelect,
+		onClear
 	}: Props = $props();
 
 	let showSavedFiltersMenu = $state(false);
 	let filterIconRef = $state<HTMLButtonElement | null>(null);
 
-	let searchValue = $state(filters.search || '');
-	let selectedTypeId = $state(filters.type_id || '');
-	let selectedPriority = $state(filters.priority || '');
-	let selectedAssigneeId = $state(filters.assignee_id !== undefined ? String(filters.assignee_id) : '');
-	let selectedSprintId = $state(filters.sprint_id || '');
+	// Initialize with empty values - $effect below syncs with filters prop
+	let searchValue = $state('');
+	let selectedTypeId = $state('');
+	let selectedPriority = $state('');
+	let selectedAssigneeId = $state('');
+	let selectedSprintId = $state('');
 
 	let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -169,6 +172,7 @@
 		selectedPriority = '';
 		selectedAssigneeId = '';
 		selectedSprintId = '';
+		onClear?.();
 		onFilterChange({});
 	}
 
@@ -251,31 +255,35 @@
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedAssigneeId}
-			on:change={handleAssigneeChange}
-		>
-			{#each assigneeItems as item (item.id)}
-				<SelectItem value={item.id} text={item.text} />
-			{/each}
-		</Select>
+		{#key assigneeItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedAssigneeId}
+				on:change={handleAssigneeChange}
+			>
+				{#each assigneeItems as item (item.id)}
+					<SelectItem value={item.id} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedTypeId}
-			on:change={handleTypeChange}
-		>
-			{#each typeItems as item (item.value)}
-				<SelectItem value={item.value} text={item.text} />
-			{/each}
-		</Select>
+		{#key typeItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedTypeId}
+				on:change={handleTypeChange}
+			>
+				{#each typeItems as item (item.value)}
+					<SelectItem value={item.value} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group">
@@ -294,17 +302,19 @@
 
 	{#if sprints.length > 0}
 		<div class="filter-group sprint-filter">
-			<Select
-				size="sm"
-				labelText=""
-				hideLabel
-				selected={selectedSprintId}
-				on:change={handleSprintChange}
-			>
-				{#each sprintItems as item (item.value)}
-					<SelectItem value={item.value} text={item.text} />
-				{/each}
-			</Select>
+			{#key sprintItems.length}
+				<Select
+					size="sm"
+					labelText=""
+					hideLabel
+					selected={selectedSprintId}
+					on:change={handleSprintChange}
+				>
+					{#each sprintItems as item (item.value)}
+						<SelectItem value={item.value} text={item.text} />
+					{/each}
+				</Select>
+			{/key}
 		</div>
 	{/if}
 

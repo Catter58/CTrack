@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Button,
 		Tile,
@@ -23,7 +23,7 @@
 	import { SprintModal, SprintCompleteModal } from '$lib/components/sprints';
 	import { toasts } from '$lib/stores/toast';
 
-	const projectKey = $derived($page.params.key);
+	const projectKey = $derived(page.params.key);
 
 	let draggedIssue = $state<BacklogIssue | null>(null);
 	let dragOverSprintId = $state<string | null>(null);
@@ -71,7 +71,8 @@
 	});
 
 	onMount(async () => {
-		const key = get(page).params.key!;
+		const key = page.params.key;
+		if (!key) return;
 		await Promise.all([
 			projects.loadProject(key),
 			sprints.loadSprints(key),

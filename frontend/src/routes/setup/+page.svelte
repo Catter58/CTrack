@@ -336,7 +336,7 @@
 				<Tile class="step-tile">
 					<div class="complete-content">
 						<div class="success-icon">
-							<Checkmark size={48} />
+							<Checkmark size={32} />
 						</div>
 						<h2>Настройка завершена!</h2>
 						<p>

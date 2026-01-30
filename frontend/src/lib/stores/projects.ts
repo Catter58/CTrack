@@ -25,6 +25,7 @@ interface ProjectMemberApi {
     email: string;
     first_name: string;
     last_name: string;
+    avatar?: string | null;
   };
   role: "admin" | "manager" | "developer" | "viewer";
   joined_at: string;
@@ -36,6 +37,7 @@ export interface ProjectMember {
   username: string;
   email: string;
   full_name: string;
+  avatar?: string | null;
   role: "admin" | "manager" | "developer" | "viewer";
   joined_at: string;
 }
@@ -248,6 +250,7 @@ function createProjectsStore() {
           full_name:
             `${m.user.first_name} ${m.user.last_name}`.trim() ||
             m.user.username,
+          avatar: m.user.avatar,
           role: m.role,
           joined_at: m.joined_at,
         }));

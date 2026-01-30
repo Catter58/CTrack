@@ -1,0 +1,63 @@
+# Caddyfile for CTrack production deployment
+# Caddy automatically handles HTTPS certificates via Let's Encrypt
+
+{$DOMAIN:localhost} {
+    # Enable HSTS with 1 year duration, including subdomains and preload
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Additional security headers (backup for Django middleware)
+    header X-Content-Type-Options "nosniff"
+    header X-Frame-Options "DENY"
+    header X-XSS-Protection "1; mode=block"
+
+    # Referrer policy for privacy
+    header Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Permissions policy (formerly Feature-Policy)
+    header Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    # API and WebSocket requests to Django backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle /ws/* {
+        reverse_proxy backend:8000
+    }
+
+    # Django admin
+    handle /admin/* {
+        reverse_proxy backend:8000
+    }
+
+    # Django static files (served by whitenoise, but can be handled by Caddy)
+    handle /static/* {
+        reverse_proxy backend:8000
+    }
+
+    # Media files
+    handle /media/* {
+        reverse_proxy backend:8000
+    }
+
+    # Health check endpoint
+    handle /health {
+        reverse_proxy backend:8000
+    }
+
+    # SSE endpoint
+    handle /sse/* {
+        reverse_proxy backend:8000
+    }
+
+    # Frontend (SvelteKit) - all other requests
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}

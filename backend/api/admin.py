@@ -5,16 +5,19 @@ Provides system administration functionality:
 - System settings management
 - User administration
 - System statistics
+- Time-series usage analytics
 """
 
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
 
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate, TruncMonth, TruncWeek
 from django.utils import timezone
 from ninja import Router, Schema
 
+from apps.core.email_backend import test_smtp_connection
 from apps.core.models import SystemSettings
 from apps.issues.models import Issue
 from apps.projects.models import Project
@@ -63,6 +66,26 @@ class SystemSettingsUpdateSchema(Schema):
     storage_settings: dict | None = None
 
 
+class SMTPTestSchema(Schema):
+    """SMTP test request schema."""
+
+    host: str
+    port: int = 587
+    username: str = ""
+    password: str = ""
+    use_tls: bool = True
+    use_ssl: bool = False
+    from_email: str = ""
+    test_recipient: str = ""
+
+
+class SMTPTestResultSchema(Schema):
+    """SMTP test result schema."""
+
+    success: bool
+    message: str
+
+
 class AdminUserSchema(Schema):
     """Admin user response schema."""
 
@@ -98,6 +121,18 @@ class AdminUserUpdateSchema(Schema):
     is_staff: bool | None = None
 
 
+class AdminUserCreateSchema(Schema):
+    """Admin user creation schema."""
+
+    username: str
+    email: str
+    password: str
+    first_name: str = ""
+    last_name: str = ""
+    is_staff: bool = False
+    send_welcome_email: bool = False
+
+
 class AdminUserListResponse(Schema):
     """Paginated user list response."""
 
@@ -122,6 +157,32 @@ class SystemStatsSchema(Schema):
     total_projects: int
     total_issues: int
     issues_this_month: int
+
+
+class TimeSeriesPointSchema(Schema):
+    """Single data point in time series."""
+
+    date: str
+    value: int
+
+
+class TimeSeriesDataSchema(Schema):
+    """Time series data for a single metric."""
+
+    name: str
+    data: list[TimeSeriesPointSchema]
+
+
+class TimeSeriesStatsSchema(Schema):
+    """Time series statistics response."""
+
+    period: str
+    aggregation: str
+    start_date: str
+    end_date: str
+    users_registered: TimeSeriesDataSchema
+    issues_created: TimeSeriesDataSchema
+    active_users: TimeSeriesDataSchema
 
 
 # ============================================================================
@@ -162,6 +223,26 @@ def update_system_settings(request, data: SystemSettingsUpdateSchema):
 
     settings.save()
     return 200, settings
+
+
+@router.post(
+    "/admin/settings/smtp/test",
+    response={200: SMTPTestResultSchema, 403: ErrorSchema},
+)
+@admin_required
+def test_smtp_settings(request, data: SMTPTestSchema):
+    """Test SMTP connection with provided settings."""
+    result = test_smtp_connection(
+        host=data.host,
+        port=data.port,
+        username=data.username,
+        password=data.password,
+        use_tls=data.use_tls,
+        use_ssl=data.use_ssl,
+        from_email=data.from_email,
+        test_recipient=data.test_recipient,
+    )
+    return 200, result
 
 
 # ============================================================================
@@ -208,6 +289,49 @@ def list_admin_users(
         "limit": limit,
         "offset": offset,
     }
+
+
+@router.post(
+    "/admin/users",
+    response={200: AdminUserSchema, 400: ErrorSchema, 403: ErrorSchema},
+)
+@admin_required
+def create_admin_user(request, data: AdminUserCreateSchema):
+    """Create a new user (admin only)."""
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    # Check if username already exists
+    if User.objects.filter(username=data.username).exists():
+        return 400, {"detail": "Пользователь с таким именем уже существует"}
+
+    # Check if email already exists
+    if User.objects.filter(email=data.email).exists():
+        return 400, {"detail": "Пользователь с таким email уже существует"}
+
+    # Validate password
+    try:
+        validate_password(data.password)
+    except ValidationError as e:
+        return 400, {"detail": "; ".join(e.messages)}
+
+    # Create user
+    user = User.objects.create_user(
+        username=data.username,
+        email=data.email,
+        password=data.password,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        is_staff=data.is_staff,
+    )
+
+    # Send welcome email if requested and SMTP is configured
+    if data.send_welcome_email:
+        from apps.core.tasks import send_welcome_email_task
+
+        send_welcome_email_task.delay(user.id)
+
+    return 200, user
 
 
 @router.get(
@@ -308,4 +432,95 @@ def get_system_stats(request):
         "total_projects": total_projects,
         "total_issues": total_issues,
         "issues_this_month": issues_this_month,
+    }
+
+
+@router.get(
+    "/admin/stats/timeseries",
+    response={200: TimeSeriesStatsSchema, 403: ErrorSchema},
+)
+@admin_required
+def get_timeseries_stats(
+    request,
+    days: int = 30,
+    aggregation: str = "day",
+):
+    """
+    Get time-series statistics for usage graphs.
+
+    Args:
+        days: Number of days to look back (default 30)
+        aggregation: Aggregation level - 'day', 'week', or 'month'
+    """
+    now = timezone.now()
+    start_date = now - timedelta(days=days)
+
+    # Select truncation function based on aggregation
+    if aggregation == "week":
+        trunc_func = TruncWeek
+    elif aggregation == "month":
+        trunc_func = TruncMonth
+    else:
+        trunc_func = TruncDate
+        aggregation = "day"
+
+    # Users registered over time
+    users_by_date = (
+        User.objects.filter(date_joined__gte=start_date)
+        .annotate(period=trunc_func("date_joined"))
+        .values("period")
+        .annotate(count=Count("id"))
+        .order_by("period")
+    )
+
+    users_data = [
+        {"date": item["period"].strftime("%Y-%m-%d"), "value": item["count"]}
+        for item in users_by_date
+    ]
+
+    # Issues created over time
+    issues_by_date = (
+        Issue.objects.filter(created_at__gte=start_date)
+        .annotate(period=trunc_func("created_at"))
+        .values("period")
+        .annotate(count=Count("id"))
+        .order_by("period")
+    )
+
+    issues_data = [
+        {"date": item["period"].strftime("%Y-%m-%d"), "value": item["count"]}
+        for item in issues_by_date
+    ]
+
+    # Active users per day (users who logged in)
+    active_by_date = (
+        User.objects.filter(last_login__gte=start_date, last_login__isnull=False)
+        .annotate(period=trunc_func("last_login"))
+        .values("period")
+        .annotate(count=Count("id", distinct=True))
+        .order_by("period")
+    )
+
+    active_data = [
+        {"date": item["period"].strftime("%Y-%m-%d"), "value": item["count"]}
+        for item in active_by_date
+    ]
+
+    return 200, {
+        "period": f"{days} days",
+        "aggregation": aggregation,
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": now.strftime("%Y-%m-%d"),
+        "users_registered": {
+            "name": "Регистрации",
+            "data": users_data,
+        },
+        "issues_created": {
+            "name": "Созданные задачи",
+            "data": issues_data,
+        },
+        "active_users": {
+            "name": "Активные пользователи",
+            "data": active_data,
+        },
     }

@@ -53,6 +53,7 @@ interface AuthStore {
   refresh(): Promise<boolean>;
   logout(): void;
   clearError(): void;
+  updateUser(partialUser: Partial<User>): void;
 }
 
 function getStoredAuth(): Partial<AuthState> {
@@ -325,6 +326,16 @@ function createAuthStore(): AuthStore {
      */
     clearError() {
       update((s) => ({ ...s, error: null }));
+    },
+
+    /**
+     * Update user data (partial update)
+     */
+    updateUser(partialUser: Partial<User>) {
+      update((s) => ({
+        ...s,
+        user: s.user ? { ...s.user, ...partialUser } : null,
+      }));
     },
   };
 

@@ -31,5 +31,10 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 #     }
 # }
 
-# Логирование
-LOGGING["loggers"]["django"]["level"] = "DEBUG"  # noqa: F405
+# Логирование - verbose format для разработки
+LOG_FORMAT = "verbose"
+LOGGING["root"]["handlers"] = ["console_verbose"]  # noqa: F405
+for logger_name in LOGGING["loggers"]:  # noqa: F405
+    LOGGING["loggers"][logger_name]["handlers"] = ["console_verbose"]  # noqa: F405
+    if logger_name.startswith("apps"):
+        LOGGING["loggers"][logger_name]["level"] = "DEBUG"  # noqa: F405

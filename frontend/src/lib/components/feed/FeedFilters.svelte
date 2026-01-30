@@ -4,6 +4,7 @@
 	import type { Project } from '$lib/stores/projects';
 	import type { FeedUser, FeedFilters, FeedAction } from '$lib/stores/feed';
 	import { actionOptions } from '$lib/stores/feed';
+	import { clearFeedFilters } from '$lib/utils/filterStorage';
 
 	interface Props {
 		projects: Project[];
@@ -22,12 +23,12 @@
 
 	let projectItems = $derived([
 		{ value: '', text: 'Все проекты' },
-		...projects.map((p) => ({ value: p.id, text: `${p.key} - ${p.name}` }))
+		...(projects || []).map((p) => ({ value: p.id, text: `${p.key} - ${p.name}` }))
 	]);
 
 	let userItems = $derived([
 		{ value: '', text: 'Все пользователи' },
-		...users.map((u) => ({
+		...(users || []).map((u) => ({
 			value: String(u.id),
 			text: u.full_name || u.username
 		}))
@@ -129,6 +130,7 @@
 		selectedAction = '';
 		dateFrom = '';
 		dateTo = '';
+		clearFeedFilters();
 		onFilterChange({});
 	}
 
@@ -148,31 +150,35 @@
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedUserId}
-			on:change={handleUserChange}
-		>
-			{#each userItems as item (item.value)}
-				<SelectItem value={item.value} text={item.text} />
-			{/each}
-		</Select>
+		{#key userItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedUserId}
+				on:change={handleUserChange}
+			>
+				{#each userItems as item (item.value)}
+					<SelectItem value={item.value} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedProjectId}
-			on:change={handleProjectChange}
-		>
-			{#each projectItems as item (item.value)}
-				<SelectItem value={item.value} text={item.text} />
-			{/each}
-		</Select>
+		{#key projectItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedProjectId}
+				on:change={handleProjectChange}
+			>
+				{#each projectItems as item (item.value)}
+					<SelectItem value={item.value} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group">

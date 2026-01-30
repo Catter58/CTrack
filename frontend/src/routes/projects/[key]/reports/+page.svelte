@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		Breadcrumb,
@@ -29,7 +29,7 @@
 		reportsError
 	} from '$lib/stores/reports';
 
-	let projectKey = $derived($page.params.key!);
+	let projectKey = $derived(page.params.key);
 	let selectedDays = $state('30');
 
 	const dayOptions = [
@@ -64,6 +64,7 @@
 	});
 
 	async function loadAllReports(): Promise<void> {
+		if (!projectKey) return;
 		const days = parseInt(selectedDays);
 		await Promise.all([
 			reports.loadSummary(projectKey),
@@ -73,6 +74,7 @@
 	}
 
 	async function handleDaysChange(event: Event): Promise<void> {
+		if (!projectKey) return;
 		const target = event.target as HTMLSelectElement;
 		selectedDays = target.value;
 		const days = parseInt(selectedDays);

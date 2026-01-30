@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
@@ -27,9 +27,9 @@
 	import type { IssueType } from '$lib/stores/issueTypes';
 	import type { Status } from '$lib/stores/statuses';
 	import type { ProjectMember } from '$lib/stores/projects';
-	import api from '$lib/api/client';
+	import api, { resolveMediaUrl } from '$lib/api/client';
 
-	const projectKey = $page.params.key!;
+	const projectKey = $derived(page.params.key);
 
 	let selectedTab = $state(0);
 
@@ -68,8 +68,9 @@
 		role: 'developer' as string
 	});
 	let userSearchQuery = $state('');
-	let userSearchResults = $state<Array<{ id: number; username: string; email: string; full_name: string }>>([]);
-	let selectedUser = $state<{ id: number; username: string; email: string; full_name: string } | null>(null);
+	type SearchUser = { id: number; username: string; email: string; full_name: string; avatar?: string | null };
+	let userSearchResults = $state<SearchUser[]>([]);
+	let selectedUser = $state<SearchUser | null>(null);
 
 	// Custom Field type and state
 	interface CustomField {
@@ -213,6 +214,7 @@
 	}
 
 	onMount(async () => {
+		if (!projectKey) return;
 		await projects.loadProject(projectKey);
 		await Promise.all([
 			issueTypes.load(projectKey),
@@ -233,6 +235,7 @@
 
 	// General settings handlers
 	async function handleSaveGeneral() {
+		if (!projectKey) return;
 		isSaving = true;
 		saveSuccess = false;
 
@@ -273,6 +276,7 @@
 	}
 
 	async function handleIssueTypeSave() {
+		if (!projectKey) return;
 		if (editingIssueType) {
 			await issueTypes.update(editingIssueType.id, {
 				name: issueTypeForm.name,
@@ -313,6 +317,7 @@
 	}
 
 	async function handleStatusSave() {
+		if (!projectKey) return;
 		if (editingStatus) {
 			await statuses.update(editingStatus.id, {
 				name: statusForm.name,
@@ -333,7 +338,7 @@
 			return;
 		}
 		try {
-			const results = await api.get<Array<{ id: number; username: string; email: string; full_name: string }>>(
+			const results = await api.get<SearchUser[]>(
 				'/api/users',
 				{ search: userSearchQuery }
 			);
@@ -345,7 +350,7 @@
 		}
 	}
 
-	function selectUser(user: { id: number; username: string; email: string; full_name: string }) {
+	function selectUser(user: SearchUser) {
 		selectedUser = user;
 		memberForm.user_id = user.id;
 		userSearchQuery = '';
@@ -372,6 +377,7 @@
 	}
 
 	async function handleMemberSave() {
+		if (!projectKey) return;
 		if (editingMember) {
 			await projects.updateMemberRole(projectKey, editingMember.user_id, memberForm.role);
 			// Reload to get updated data
@@ -491,7 +497,7 @@
 	}
 
 	async function handleDelete() {
-		if (!deleteTarget) return;
+		if (!deleteTarget || !projectKey) return;
 
 		if (deleteTarget.type === 'issueType') {
 			await issueTypes.delete(deleteTarget.id);
@@ -521,6 +527,7 @@
 
 	// Archive handler
 	async function handleArchive() {
+		if (!projectKey) return;
 		const success = await projects.archiveProject(projectKey);
 		if (success) {
 			goto('/projects');
@@ -530,6 +537,7 @@
 
 	// Restore handler
 	async function handleRestore() {
+		if (!projectKey) return;
 		const success = await projects.restoreProject(projectKey);
 		restoreModalOpen = false;
 		if (success) {
@@ -540,6 +548,7 @@
 
 	// Permanent delete handler
 	async function handlePermanentDelete() {
+		if (!projectKey) return;
 		const success = await projects.deleteProjectPermanently(projectKey);
 		if (success) {
 			goto('/projects');
@@ -548,7 +557,8 @@
 	}
 
 	// Table headers
-	const issueTypeHeaders = [
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const issueTypeHeaders: any[] = [
 		{ key: 'color', value: '' },
 		{ key: 'name', value: 'Название' },
 		{ key: 'icon', value: 'Иконка' },
@@ -557,7 +567,8 @@
 		{ key: 'actions', value: '' }
 	];
 
-	const statusHeaders = [
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const statusHeaders: any[] = [
 		{ key: 'color', value: '' },
 		{ key: 'name', value: 'Название' },
 		{ key: 'category', value: 'Категория' },
@@ -565,7 +576,8 @@
 		{ key: 'actions', value: '' }
 	];
 
-	const memberHeaders = [
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const memberHeaders: any[] = [
 		{ key: 'username', value: 'Пользователь' },
 		{ key: 'email', value: 'Email' },
 		{ key: 'role', value: 'Роль' },
@@ -573,7 +585,8 @@
 		{ key: 'actions', value: '' }
 	];
 
-	const customFieldHeaders = [
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const customFieldHeaders: any[] = [
 		{ key: 'name', value: 'Название' },
 		{ key: 'field_key', value: 'Ключ' },
 		{ key: 'field_type', value: 'Тип' },
@@ -581,7 +594,8 @@
 		{ key: 'actions', value: '' }
 	];
 
-	const workflowHeaders = [
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const workflowHeaders: any[] = [
 		{ key: 'from_status', value: 'Из статуса' },
 		{ key: 'arrow', value: '' },
 		{ key: 'to_status', value: 'В статус' },
@@ -714,6 +728,7 @@
 				{#if $projectsLoading}
 					<Loading withOverlay={false} small />
 				{:else}
+					<!-- @ts-expect-error Carbon DataTable typing issue with Svelte 5 -->
 					<DataTable
 						headers={memberHeaders}
 						rows={$projectMembers.map((m) => ({ id: String(m.user_id), ...m }))}
@@ -780,6 +795,7 @@
 				{#if $issueTypesLoading}
 					<Loading withOverlay={false} small />
 				{:else}
+					<!-- @ts-expect-error Carbon DataTable typing issue with Svelte 5 -->
 					<DataTable
 						headers={issueTypeHeaders}
 						rows={$issueTypesList}
@@ -835,6 +851,7 @@
 				{#if $statusesLoading}
 					<Loading withOverlay={false} small />
 				{:else}
+					<!-- @ts-expect-error Carbon DataTable typing issue with Svelte 5 -->
 					<DataTable
 						headers={statusHeaders}
 						rows={$statusesList}
@@ -892,6 +909,7 @@
 				{#if customFieldsLoading}
 					<Loading withOverlay={false} small />
 				{:else}
+					<!-- @ts-expect-error Carbon DataTable typing issue with Svelte 5 -->
 					<DataTable
 						headers={customFieldHeaders}
 						rows={customFieldsList}
@@ -949,6 +967,7 @@
 				{#if workflowLoading}
 					<Loading withOverlay={false} small />
 				{:else}
+					<!-- @ts-expect-error Carbon DataTable typing issue with Svelte 5 -->
 					<DataTable
 						headers={workflowHeaders}
 						rows={workflowTransitions}
@@ -1093,7 +1112,11 @@
 						{#each userSearchResults as user}
 							<button class="search-result" on:click={() => selectUser(user)}>
 								<div class="result-avatar">
-									{user.full_name?.charAt(0) || user.username.charAt(0)}
+									{#if user.avatar}
+										<img src={resolveMediaUrl(user.avatar)} alt={user.full_name || user.username} />
+									{:else}
+										{user.full_name?.charAt(0) || user.username.charAt(0)}
+									{/if}
 								</div>
 								<div class="result-info">
 									<span class="result-name">{user.full_name || user.username}</span>
@@ -1110,7 +1133,11 @@
 				{#if selectedUser}
 					<div class="selected-user-card">
 						<div class="selected-avatar">
-							{selectedUser.username.charAt(0).toUpperCase()}
+							{#if selectedUser.avatar}
+								<img src={resolveMediaUrl(selectedUser.avatar)} alt={selectedUser.username} />
+							{:else}
+								{selectedUser.username.charAt(0).toUpperCase()}
+							{/if}
 						</div>
 						<div class="selected-info">
 							<span class="selected-name">{selectedUser.username}</span>
@@ -1125,7 +1152,11 @@
 		{:else}
 			<div class="selected-user-card">
 				<div class="selected-avatar">
-					{editingMember.username.charAt(0).toUpperCase()}
+					{#if editingMember.avatar}
+						<img src={resolveMediaUrl(editingMember.avatar)} alt={editingMember.username} />
+					{:else}
+						{editingMember.username.charAt(0).toUpperCase()}
+					{/if}
 				</div>
 				<div class="selected-info">
 					<span class="selected-name">{editingMember.full_name || editingMember.username}</span>
@@ -1477,6 +1508,13 @@
 		font-size: 0.875rem;
 		text-transform: uppercase;
 		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.result-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	.result-info {
@@ -1531,6 +1569,13 @@
 		font-weight: 600;
 		font-size: 1rem;
 		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.selected-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	.selected-info {

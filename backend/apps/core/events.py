@@ -20,6 +20,7 @@ class EventType:
     ISSUE_UPDATED = "issue.updated"
     ISSUE_MOVED = "issue.moved"
     ISSUE_DELETED = "issue.deleted"
+    ISSUE_EDITING = "issue.editing"
 
     # Sprint events
     SPRINT_UPDATED = "sprint.updated"
@@ -29,6 +30,9 @@ class EventType:
 
     # Member events
     MEMBER_JOINED = "member.joined"
+
+    # Activity feed events
+    ACTIVITY_CREATED = "activity.created"
 
 
 _redis_client: redis.Redis | None = None
@@ -125,3 +129,41 @@ def publish_member_joined(
             "role": role,
         },
     )
+
+
+def publish_issue_editing(
+    project_id: UUID | str,
+    issue_key: str,
+    user_id: int,
+    username: str,
+    full_name: str,
+    avatar_url: str | None,
+    is_editing: bool,
+) -> None:
+    """Publish issue.editing event when a user starts/stops editing an issue."""
+    publish_event(
+        project_id,
+        EventType.ISSUE_EDITING,
+        {
+            "issue_key": issue_key,
+            "user_id": user_id,
+            "username": username,
+            "full_name": full_name,
+            "avatar_url": avatar_url,
+            "is_editing": is_editing,
+        },
+    )
+
+
+def publish_activity(
+    project_id: UUID | str,
+    activity_data: dict,
+) -> None:
+    """
+    Publish activity.created event for real-time feed updates.
+
+    Args:
+        project_id: The project UUID
+        activity_data: Activity data matching FeedItemSchema structure
+    """
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)

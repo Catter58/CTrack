@@ -9,11 +9,18 @@
 		Star,
 		Attachment,
 		TrashCan,
-		Chat
+		Chat,
+		Image,
+		DocumentPdf,
+		DocumentBlank,
+		Archive,
+		Code,
+		VideoChat
 	} from 'carbon-icons-svelte';
 	import { Link } from 'carbon-components-svelte';
 	import type { FeedItem, FeedAction } from '$lib/stores/feed';
 	import { actionLabels } from '$lib/stores/feed';
+	import { resolveMediaUrl } from '$lib/api/client';
 
 	interface Props {
 		item: FeedItem;
@@ -156,6 +163,40 @@
 	);
 
 	let valueType = $derived(getValueType(item.action));
+
+	// Get attachment filename from activity data
+	function getAttachmentFilename(): string | null {
+		if (item.action === 'attachment_added' && item.new_value) {
+			const val = item.new_value as { filename?: string };
+			return val.filename || null;
+		}
+		if (item.action === 'attachment_removed' && item.old_value) {
+			const val = item.old_value as { filename?: string };
+			return val.filename || null;
+		}
+		return null;
+	}
+
+	// Get file icon based on extension
+	function getFileIconType(filename: string): 'image' | 'pdf' | 'archive' | 'code' | 'video' | 'document' {
+		const ext = filename.split('.').pop()?.toLowerCase() || '';
+
+		const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+		const pdfExtensions = ['pdf'];
+		const archiveExtensions = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
+		const codeExtensions = ['js', 'ts', 'py', 'java', 'c', 'cpp', 'h', 'go', 'rs', 'rb', 'php', 'html', 'css', 'scss', 'json', 'xml', 'yaml', 'yml', 'md', 'svelte', 'vue', 'jsx', 'tsx'];
+		const videoExtensions = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv'];
+
+		if (imageExtensions.includes(ext)) return 'image';
+		if (pdfExtensions.includes(ext)) return 'pdf';
+		if (archiveExtensions.includes(ext)) return 'archive';
+		if (codeExtensions.includes(ext)) return 'code';
+		if (videoExtensions.includes(ext)) return 'video';
+		return 'document';
+	}
+
+	let attachmentFilename = $derived(getAttachmentFilename());
+	let fileIconType = $derived(attachmentFilename ? getFileIconType(attachmentFilename) : null);
 </script>
 
 <div class="feed-item">
@@ -188,7 +229,11 @@
 	<div class="item-content">
 		<div class="item-header">
 			<div class="avatar">
-				{getUserInitials(item.user)}
+				{#if item.user.avatar}
+					<img src={resolveMediaUrl(item.user.avatar)} alt={getUserName(item.user)} />
+				{:else}
+					{getUserInitials(item.user)}
+				{/if}
 			</div>
 			<div class="header-text">
 				<span class="user-name">{getUserName(item.user)}</span>
@@ -224,6 +269,27 @@
 		{#if item.action === 'assigned' && item.new_value}
 			<div class="assigned-user">
 				{formatValue(item.new_value, 'user')}
+			</div>
+		{/if}
+
+		{#if (item.action === 'attachment_added' || item.action === 'attachment_removed') && attachmentFilename}
+			<div class="attachment-info" class:removed={item.action === 'attachment_removed'}>
+				<span class="file-icon">
+					{#if fileIconType === 'image'}
+						<Image size={16} />
+					{:else if fileIconType === 'pdf'}
+						<DocumentPdf size={16} />
+					{:else if fileIconType === 'archive'}
+						<Archive size={16} />
+					{:else if fileIconType === 'code'}
+						<Code size={16} />
+					{:else if fileIconType === 'video'}
+						<VideoChat size={16} />
+					{:else}
+						<DocumentBlank size={16} />
+					{/if}
+				</span>
+				<span class="filename">{attachmentFilename}</span>
 			</div>
 		{/if}
 
@@ -276,6 +342,13 @@
 		font-size: 0.625rem;
 		font-weight: 600;
 		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 
 	.header-text {
@@ -360,6 +433,38 @@
 		color: var(--cds-text-primary);
 		display: inline-block;
 		margin-bottom: 0.5rem;
+	}
+
+	.attachment-info {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
+		background: var(--cds-layer);
+		border-radius: 4px;
+		font-size: 0.875rem;
+		margin-bottom: 0.5rem;
+		border-left: 3px solid #1192e8;
+	}
+
+	.attachment-info.removed {
+		border-left-color: #da1e28;
+	}
+
+	.attachment-info.removed .filename {
+		text-decoration: line-through;
+		color: var(--cds-text-secondary);
+	}
+
+	.file-icon {
+		display: flex;
+		align-items: center;
+		color: var(--cds-icon-secondary);
+	}
+
+	.filename {
+		color: var(--cds-text-primary);
+		word-break: break-all;
 	}
 
 	.timestamp {

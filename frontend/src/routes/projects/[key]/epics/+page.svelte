@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Button,
 		Tile,
@@ -14,10 +13,11 @@
 	import { epicsStore, epicsList, epicsLoading, epicsError, epicsStats } from '$lib/stores/epics';
 	import { EpicCard } from '$lib/components/epics';
 
-	const projectKey = $derived($page.params.key);
+	const projectKey = $derived(page.params.key);
 
 	onMount(async () => {
-		const key = get(page).params.key!;
+		const key = page.params.key;
+		if (!key) return;
 		await Promise.all([projects.loadProject(key), epicsStore.loadEpics(key)]);
 	});
 

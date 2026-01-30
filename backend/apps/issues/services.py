@@ -10,6 +10,7 @@ from django.db.models import Q, QuerySet
 
 from apps.projects.models import Project, ProjectMembership
 from apps.users.models import User
+from apps.users.services import NotificationService
 
 from .models import (
     ActivityAction,
@@ -34,7 +35,7 @@ class ActivityService:
         old_value=None,
         new_value=None,
     ) -> IssueActivity:
-        return IssueActivity.objects.create(
+        activity = IssueActivity.objects.create(
             issue=issue,
             user=user,
             action=action,
@@ -42,6 +43,42 @@ class ActivityService:
             old_value=old_value,
             new_value=new_value,
         )
+
+        # Publish real-time feed event
+        from apps.core.events import publish_activity
+
+        user_full_name = (
+            " ".join(p for p in [user.first_name, user.last_name] if p).strip()
+            or user.username
+        )
+
+        publish_activity(
+            issue.project_id,
+            {
+                "id": str(activity.id),
+                "action": action,
+                "field_name": field_name,
+                "old_value": old_value,
+                "new_value": new_value,
+                "created_at": activity.created_at.isoformat(),
+                "issue": {
+                    "key": issue.key,
+                    "title": issue.title,
+                    "project": {
+                        "key": issue.project.key,
+                        "name": issue.project.name,
+                    },
+                },
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "full_name": user_full_name,
+                    "avatar": user.avatar.url if user.avatar else None,
+                },
+            },
+        )
+
+        return activity
 
     @staticmethod
     def log_creation(issue: Issue, user: User) -> IssueActivity:
@@ -481,6 +518,21 @@ class IssueService:
                     issue, user, old_story_points, issue.story_points
                 )
 
+            # Send email notifications (async via Celery in production)
+            # Assignment notification
+            if (
+                "assignee_id" in kwargs
+                and issue.assignee
+                and issue.assignee != old_assignee
+            ):
+                NotificationService.send_assignment_notification(issue, issue.assignee)
+
+            # Status change notification
+            if "status_id" in kwargs and old_status.id != issue.status_id:
+                NotificationService.send_status_change_notification(
+                    issue, old_status.name, issue.status.name, user
+                )
+
         # Publish real-time events
         from apps.core.events import publish_issue_moved, publish_issue_updated
 
@@ -542,6 +594,17 @@ class IssueService:
                 "author_name": user.get_full_name() or user.username,
             },
         )
+
+        # Send email notifications
+        # Notify reporter and assignee about new comment
+        NotificationService.send_comment_notification(issue, comment)
+
+        # Notify mentioned users
+        mentioned_users = IssueService.get_mentioned_users(content)
+        if mentioned_users.exists():
+            NotificationService.send_mention_notification(
+                issue, list(mentioned_users), user
+            )
 
         return comment
 

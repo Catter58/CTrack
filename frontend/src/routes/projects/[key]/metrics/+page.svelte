@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		Breadcrumb,
@@ -10,7 +10,6 @@
 		InlineNotification
 	} from 'carbon-components-svelte';
 	import { ChartColumn, ChartLine } from 'carbon-icons-svelte';
-	import { VelocityChart, BurndownChart } from '$lib/components/metrics';
 	import {
 		metrics,
 		velocityData,
@@ -22,7 +21,11 @@
 	import { sprints } from '$lib/stores/sprints';
 	import type { Sprint } from '$lib/stores/sprints';
 
-	let projectKey = $derived($page.params.key);
+	// Lazy load chart components
+	const velocityChartPromise = import('$lib/components/metrics/VelocityChart.svelte');
+	const burndownChartPromise = import('$lib/components/metrics/BurndownChart.svelte');
+
+	let projectKey = $derived(page.params.key);
 	let selectedSprintId = $state<string>('');
 
 	// Filter sprints that have been started (active or completed)
@@ -33,6 +36,8 @@
 	);
 
 	onMount(async () => {
+		if (!projectKey) return;
+
 		// Load velocity data
 		await metrics.loadVelocity(projectKey);
 
@@ -100,7 +105,17 @@
 					<InlineLoading description="Загрузка данных velocity..." />
 				</div>
 			{:else if $velocityData}
-				<VelocityChart data={$velocityData} />
+				{#await velocityChartPromise}
+					<div class="loading-container">
+						<InlineLoading description="Загрузка компонента..." />
+					</div>
+				{:then module}
+					<module.default data={$velocityData} />
+				{:catch}
+					<div class="empty-state">
+						<p>Ошибка загрузки компонента графика</p>
+					</div>
+				{/await}
 			{:else}
 				<div class="empty-state">
 					<p>Нет данных о velocity</p>
@@ -136,7 +151,17 @@
 					<InlineLoading description="Загрузка burndown..." />
 				</div>
 			{:else if $burndownData}
-				<BurndownChart data={$burndownData} />
+				{#await burndownChartPromise}
+					<div class="loading-container">
+						<InlineLoading description="Загрузка компонента..." />
+					</div>
+				{:then module}
+					<module.default data={$burndownData} />
+				{:catch}
+					<div class="empty-state">
+						<p>Ошибка загрузки компонента графика</p>
+					</div>
+				{/await}
 			{:else}
 				<div class="empty-state">
 					<p>Выберите спринт для отображения burndown диаграммы</p>

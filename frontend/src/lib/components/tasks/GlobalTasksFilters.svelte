@@ -4,6 +4,7 @@
 	import type { Project } from '$lib/stores/projects';
 	import type { GlobalStatus, GlobalUser, GlobalTasksFilters } from '$lib/stores/globalTasks';
 	import { priorityOptions } from '$lib/stores/globalTasks';
+	import { clearTasksFilters } from '$lib/utils/filterStorage';
 
 	interface Props {
 		projects: Project[];
@@ -176,6 +177,7 @@
 		selectedAssigneeId = '';
 		dueDateFrom = '';
 		dueDateTo = '';
+		clearTasksFilters();
 		onProjectChange?.(undefined);
 		onFilterChange({});
 	}
@@ -211,31 +213,35 @@
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedProjectId}
-			on:change={handleProjectChange}
-		>
-			{#each projectItems as item (item.value)}
-				<SelectItem value={item.value} text={item.text} />
-			{/each}
-		</Select>
+		{#key projectItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedProjectId}
+				on:change={handleProjectChange}
+			>
+				{#each projectItems as item (item.value)}
+					<SelectItem value={item.value} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedStatusId}
-			on:change={handleStatusChange}
-		>
-			{#each statusItems as item (item.value)}
-				<SelectItem value={item.value} text={item.text} />
-			{/each}
-		</Select>
+		{#key statusItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedStatusId}
+				on:change={handleStatusChange}
+			>
+				{#each statusItems as item (item.value)}
+					<SelectItem value={item.value} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group">
@@ -253,17 +259,19 @@
 	</div>
 
 	<div class="filter-group">
-		<Select
-			size="sm"
-			labelText=""
-			hideLabel
-			selected={selectedAssigneeId}
-			on:change={handleAssigneeChange}
-		>
-			{#each assigneeItems as item (item.value)}
-				<SelectItem value={item.value} text={item.text} />
-			{/each}
-		</Select>
+		{#key assigneeItems.length}
+			<Select
+				size="sm"
+				labelText=""
+				hideLabel
+				selected={selectedAssigneeId}
+				on:change={handleAssigneeChange}
+			>
+				{#each assigneeItems as item (item.value)}
+					<SelectItem value={item.value} text={item.text} />
+				{/each}
+			</Select>
+		{/key}
 	</div>
 
 	<div class="filter-group date-group">

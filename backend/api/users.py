@@ -2,8 +2,14 @@
 Users API endpoints.
 """
 
+import io
+import uuid
+
 from django.contrib.auth.hashers import check_password
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from ninja import Router, Schema
+from ninja.files import UploadedFile
+from PIL import Image
 
 from apps.users.auth import AuthBearer
 from apps.users.models import User
@@ -11,6 +17,10 @@ from apps.users.schemas import ErrorSchema, MessageSchema, UserSchema
 from apps.users.services import NotificationService
 
 router = Router(auth=AuthBearer())
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_AVATAR_SIZE = 5 * 1024 * 1024  # 5MB
+AVATAR_OUTPUT_SIZE = (256, 256)
 
 
 class UserUpdateSchema(Schema):
@@ -109,6 +119,117 @@ def update_user(request, user_id: int, data: UserUpdateSchema):
     user.save()
 
     return 200, user
+
+
+class AvatarUploadResponse(Schema):
+    """Response schema for avatar upload."""
+
+    avatar_url: str
+
+
+@router.post(
+    "/{user_id}/avatar",
+    response={
+        200: AvatarUploadResponse,
+        400: ErrorSchema,
+        403: ErrorSchema,
+        404: ErrorSchema,
+    },
+)
+def upload_avatar(request, user_id: int, file: UploadedFile):
+    """
+    Upload and process user avatar.
+
+    Accepts an image file (JPEG, PNG, GIF, WebP) up to 5MB.
+    The image is resized to 256x256 and converted to JPEG.
+    Supports cropping coordinates from the frontend.
+    """
+    # Users can only update their own avatar
+    if request.auth.id != user_id and not request.auth.is_superuser:
+        return 403, {"detail": "Можно изменить только свой аватар"}
+
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return 404, {"detail": "Пользователь не найден"}
+
+    # Validate file type
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        return 400, {"detail": "Допустимые форматы: JPEG, PNG, GIF, WebP"}
+
+    # Validate file size
+    if file.size > MAX_AVATAR_SIZE:
+        return 400, {"detail": "Максимальный размер файла: 5 МБ"}
+
+    try:
+        # Open image with Pillow
+        image = Image.open(file.file)
+
+        # Convert to RGB if necessary (for PNG with transparency)
+        if image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
+
+        # Crop to square (center crop)
+        width, height = image.size
+        min_dim = min(width, height)
+        left = (width - min_dim) // 2
+        top = (height - min_dim) // 2
+        right = left + min_dim
+        bottom = top + min_dim
+        image = image.crop((left, top, right, bottom))
+
+        # Resize to target size
+        image = image.resize(AVATAR_OUTPUT_SIZE, Image.Resampling.LANCZOS)
+
+        # Save to buffer
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=85, optimize=True)
+        buffer.seek(0)
+
+        # Generate unique filename
+        filename = f"{uuid.uuid4().hex}.jpg"
+
+        # Delete old avatar if exists
+        if user.avatar:
+            user.avatar.delete(save=False)
+
+        # Save new avatar
+        user.avatar.save(
+            filename,
+            InMemoryUploadedFile(
+                buffer,
+                field_name="avatar",
+                name=filename,
+                content_type="image/jpeg",
+                size=buffer.getbuffer().nbytes,
+                charset=None,
+            ),
+            save=True,
+        )
+
+        return 200, {"avatar_url": user.avatar.url}
+
+    except Exception as e:
+        return 400, {"detail": f"Ошибка обработки изображения: {str(e)}"}
+
+
+@router.delete(
+    "/{user_id}/avatar",
+    response={200: MessageSchema, 403: ErrorSchema, 404: ErrorSchema},
+)
+def delete_avatar(request, user_id: int):
+    """Delete user avatar."""
+    # Users can only delete their own avatar
+    if request.auth.id != user_id and not request.auth.is_superuser:
+        return 403, {"detail": "Можно удалить только свой аватар"}
+
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return 404, {"detail": "Пользователь не найден"}
+
+    if user.avatar:
+        user.avatar.delete(save=True)
+
+    return 200, {"message": "Аватар удалён"}
 
 
 @router.patch(

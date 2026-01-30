@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Button,
 		Tile,
 		ClickableTile,
-		DataTableSkeleton,
+		Loading,
 		Modal,
 		TextInput,
 		TextArea,
@@ -32,7 +32,7 @@
 
 	// Check URL params for ?new=true
 	$effect(() => {
-		if ($page.url.searchParams.get('new') === 'true') {
+		if (page.url.searchParams.get('new') === 'true') {
 			showCreateModal = true;
 		}
 	});
@@ -89,7 +89,7 @@
 		showCreateModal = false;
 		createError = null;
 		// Remove ?new=true from URL
-		if ($page.url.searchParams.get('new')) {
+		if (page.url.searchParams.get('new')) {
 			goto('/projects', { replaceState: true });
 		}
 	}
@@ -135,11 +135,13 @@
 	{/if}
 
 	{#if $projectsLoading}
-		<DataTableSkeleton headers={[{ value: '' }]} rows={3} />
+		<div class="loading-state">
+			<Loading withOverlay={false} />
+		</div>
 	{:else if $projectsList.length === 0}
 		<div class="empty-state">
 			<Tile>
-				<FolderDetails size={48} />
+				<FolderDetails size={32} />
 				<h3>Нет проектов</h3>
 				<p>Создайте первый проект, чтобы начать работу</p>
 				<Button icon={Add} on:click={() => (showCreateModal = true)}>Создать проект</Button>
@@ -290,6 +292,12 @@
 		padding-top: 0.5rem;
 		font-size: 0.75rem;
 		color: var(--cds-text-secondary);
+	}
+
+	.loading-state {
+		display: flex;
+		justify-content: center;
+		padding: 3rem;
 	}
 
 	.empty-state {

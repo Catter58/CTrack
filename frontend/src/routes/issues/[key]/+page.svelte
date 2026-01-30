@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		Breadcrumb,
@@ -38,7 +38,8 @@
 	import { auth } from '$lib/stores/auth';
 	import { projects, projectMembers } from '$lib/stores/projects';
 	import { board, statuses } from '$lib/stores/board';
-	import api from '$lib/api/client';
+	import { events, type SSEEvent, type EditingEventData } from '$lib/stores/events';
+	import api, { resolveMediaUrl } from '$lib/api/client';
 	import RichEditor from '$lib/components/RichEditor.svelte';
 	import RichContent from '$lib/components/RichContent.svelte';
 	import { ActivityFeed, AttachmentsList, AttachmentUploader, SubtasksList } from '$lib/components/issues';
@@ -55,7 +56,20 @@
 		description: string;
 	}
 
-	const issueKey = $page.params.key!;
+	// Editor info type
+	interface Editor {
+		user_id: number;
+		username: string;
+		full_name: string;
+		avatar_url: string | null;
+	}
+
+	// Reactive issue key from URL params
+	const issueKey = $derived(page.params.key!);
+
+	// Track the key we're currently loading to prevent double loads
+	let loadingKey = $state<string | null>(null);
+	let hasAttemptedLoad = $state(false);
 
 	// Edit mode
 	let isEditing = $state(false);
@@ -87,6 +101,11 @@
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
 
+	// Editing indicator state
+	let otherEditors = $state<Editor[]>([]);
+	let editingHeartbeatInterval: ReturnType<typeof setInterval> | null = null;
+	let unsubscribeEditing: (() => void) | null = null;
+
 	// Get done status for quick-complete
 	let doneStatusId = $derived(
 		$statuses.find((s) => s.category === 'done')?.id ?? null
@@ -105,25 +124,134 @@
 		}
 	}
 
-	onMount(async () => {
-		const projectKey = issueKey?.split('-')[0];
-		const loadedIssue = await issue.load(issueKey);
+	// Load current editing status
+	async function loadEditingStatus(key: string) {
+		try {
+			const response = await api.get<{ is_editing: boolean; editors: Editor[] }>(
+				`/api/issues/${key}/editing`
+			);
+			// Filter out current user from other editors
+			otherEditors = response.editors.filter((e) => e.user_id !== $auth.user?.id);
+		} catch (err) {
+			console.error('Failed to load editing status:', err);
+		}
+	}
+
+	// Start editing session
+	async function startEditingSession() {
+		try {
+			await api.post(`/api/issues/${issueKey}/editing`);
+		} catch (err) {
+			console.error('Failed to start editing session:', err);
+		}
+	}
+
+	// Stop editing session
+	async function stopEditingSession() {
+		try {
+			await api.delete(`/api/issues/${issueKey}/editing`);
+		} catch (err) {
+			console.error('Failed to stop editing session:', err);
+		}
+	}
+
+	// Handle editing SSE events
+	function handleEditingEvent(event: SSEEvent) {
+		const data = event.data as EditingEventData | undefined;
+		if (!data || data.issue_key !== issueKey) return;
+
+		// Skip events from current user
+		if (data.user_id === $auth.user?.id) return;
+
+		if (data.is_editing) {
+			// Add editor if not already in list
+			const exists = otherEditors.some((e) => e.user_id === data.user_id);
+			if (!exists) {
+				otherEditors = [
+					...otherEditors,
+					{
+						user_id: data.user_id,
+						username: data.username,
+						full_name: data.full_name,
+						avatar_url: data.avatar_url
+					}
+				];
+			}
+		} else {
+			// Remove editor from list
+			otherEditors = otherEditors.filter((e) => e.user_id !== data.user_id);
+		}
+	}
+
+	// Load issue data
+	async function loadIssueData(key: string) {
+		// Skip if already loading this key
+		if (loadingKey === key && hasAttemptedLoad) return;
+
+		loadingKey = key;
+		hasAttemptedLoad = false;
+
+		const projectKey = key?.split('-')[0];
+		const loadedIssue = await issue.load(key);
 
 		await Promise.all([
-			issue.loadComments(issueKey),
-			issue.loadTransitions(issueKey),
-			issue.loadChildren(issueKey),
-			issue.loadActivities(issueKey),
-			issue.loadAttachments(issueKey),
+			issue.loadComments(key),
+			issue.loadTransitions(key),
+			issue.loadChildren(key),
+			issue.loadActivities(key),
+			issue.loadAttachments(key),
 			projectKey ? projects.loadMembers(projectKey) : Promise.resolve(),
 			projectKey ? board.loadStatuses(projectKey) : Promise.resolve(),
 			loadedIssue && projectKey
 				? loadCustomFieldDefinitions(projectKey, loadedIssue.issue_type.id)
-				: Promise.resolve()
+				: Promise.resolve(),
+			loadEditingStatus(key)
 		]);
+
+		hasAttemptedLoad = true;
+	}
+
+	// Use afterNavigate for reliable cross-browser navigation handling
+	afterNavigate(() => {
+		const key = page.params.key;
+		if (key) {
+			loadIssueData(key);
+		}
+	});
+
+	onMount(() => {
+		// Subscribe to editing events
+		unsubscribeEditing = events.on('issue.editing', handleEditingEvent);
+
+		// Initial load on mount
+		const key = page.params.key;
+		if (key) {
+			loadIssueData(key);
+		}
 	});
 
 	onDestroy(() => {
+		// Stop editing session if we were editing
+		if (isEditing) {
+			stopEditingSession();
+		}
+
+		// Clear heartbeat interval
+		if (editingHeartbeatInterval) {
+			clearInterval(editingHeartbeatInterval);
+			editingHeartbeatInterval = null;
+		}
+
+		// Unsubscribe from editing events
+		if (unsubscribeEditing) {
+			unsubscribeEditing();
+			unsubscribeEditing = null;
+		}
+
+		// Reset loading state for next navigation
+		loadingKey = null;
+		hasAttemptedLoad = false;
+
 		issue.reset();
 	});
 
@@ -140,6 +268,12 @@
 			// Initialize custom fields form with current values
 			customFieldsForm = { ...$currentIssue.custom_fields };
 			isEditing = true;
+
+			// Start editing session and heartbeat
+			startEditingSession();
+			editingHeartbeatInterval = setInterval(() => {
+				startEditingSession(); // Refresh TTL every 30 seconds
+			}, 30000);
 		}
 	}
 
@@ -158,11 +292,23 @@
 
 		if (result) {
 			isEditing = false;
+			// Stop editing session
+			stopEditingSession();
+			if (editingHeartbeatInterval) {
+				clearInterval(editingHeartbeatInterval);
+				editingHeartbeatInterval = null;
+			}
 		}
 	}
 
 	function cancelEdit() {
 		isEditing = false;
+		// Stop editing session
+		stopEditingSession();
+		if (editingHeartbeatInterval) {
+			clearInterval(editingHeartbeatInterval);
+			editingHeartbeatInterval = null;
+		}
 	}
 
 	async function handleTransition(statusId: string) {
@@ -332,7 +478,7 @@
 	<title>{$currentIssue?.key || issueKey} - CTrack</title>
 </svelte:head>
 
-{#if $issueLoading && !$currentIssue}
+{#if $issueLoading || !hasAttemptedLoad}
 	<div class="loading-container">
 		<Loading withOverlay={false} />
 	</div>
@@ -358,6 +504,31 @@
 			<!-- Main Content -->
 			<main class="issue-main">
 				<header class="issue-header">
+					{#if otherEditors.length > 0}
+						<div class="editing-indicator">
+							<div class="editing-avatars">
+								{#each otherEditors as editor (editor.user_id)}
+									<div class="editing-avatar" title={editor.full_name}>
+										{#if editor.avatar_url}
+											<img src={resolveMediaUrl(editor.avatar_url)} alt={editor.full_name} />
+										{:else}
+											<span class="avatar-placeholder">
+												{editor.full_name.charAt(0).toUpperCase()}
+											</span>
+										{/if}
+									</div>
+								{/each}
+							</div>
+							<span class="editing-text">
+								{#if otherEditors.length === 1}
+									{otherEditors[0].full_name} редактирует задачу
+								{:else}
+									{otherEditors.length} пользователей редактируют задачу
+								{/if}
+							</span>
+						</div>
+					{/if}
+
 					<div class="header-top">
 						<div class="issue-meta">
 							<Tag type="blue" style="background-color: {$currentIssue.issue_type.color}">
@@ -865,6 +1036,58 @@
 
 	.issue-header {
 		margin-bottom: 2rem;
+	}
+
+	.editing-indicator {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: var(--cds-support-warning-inverse);
+		border-radius: 4px;
+		margin-bottom: 1rem;
+	}
+
+	.editing-avatars {
+		display: flex;
+		align-items: center;
+	}
+
+	.editing-avatar {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		overflow: hidden;
+		border: 2px solid var(--cds-layer);
+		margin-left: -8px;
+	}
+
+	.editing-avatar:first-child {
+		margin-left: 0;
+	}
+
+	.editing-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.avatar-placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		background: var(--cds-interactive);
+		color: var(--cds-text-on-color);
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.editing-text {
+		font-size: 0.875rem;
+		color: var(--cds-text-primary);
+		font-weight: 500;
 	}
 
 	.header-top {

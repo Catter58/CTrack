@@ -1,6 +1,7 @@
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 
+from apps.core.email_backend import get_from_email, get_smtp_settings
 from apps.issues.models import Issue, IssueComment
 
 from .models import NotificationPreference, User
@@ -140,14 +141,23 @@ class NotificationService:
 
     @staticmethod
     def _send_email(to_email: str, subject: str, message: str) -> bool:
+        # Check if SMTP is configured and enabled
+        smtp_settings = get_smtp_settings()
+        if smtp_settings is None:
+            # SMTP not configured - skip sending
+            return False
+
         try:
-            send_mail(
+            from_email = get_from_email()
+
+            email = EmailMessage(
                 subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[to_email],
-                fail_silently=True,
+                body=message,
+                from_email=from_email,
+                to=[to_email],
             )
+            # Use the custom database email backend
+            email.send(fail_silently=True)
             return True
         except Exception:
             return False

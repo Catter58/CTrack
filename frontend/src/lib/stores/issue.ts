@@ -27,6 +27,7 @@ export interface User {
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
+  avatar?: string | null;
 }
 
 export interface Comment {

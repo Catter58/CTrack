@@ -112,8 +112,12 @@
 	});
 
 	onDestroy(() => {
-		if (editor) {
-			editor.destroy();
+		if (editor && typeof editor.destroy === 'function') {
+			try {
+				editor.destroy();
+			} catch (err) {
+				console.warn('EditorJS destroy error:', err);
+			}
 			editor = null;
 		}
 	});

@@ -12,6 +12,7 @@
 	import { User, Settings } from 'carbon-icons-svelte';
 	import { user, isLoading as authLoading } from '$lib/stores/auth';
 	import api from '$lib/api/client';
+	import UsageCharts from '$lib/components/admin/UsageCharts.svelte';
 
 	interface SystemStats {
 		total_users: number;
@@ -133,6 +134,10 @@
 				</ClickableTile>
 			</div>
 		</section>
+
+		<section class="charts-section">
+			<UsageCharts />
+		</section>
 	{/if}
 </div>
 
@@ -226,5 +231,9 @@
 		font-size: 0.875rem;
 		color: var(--cds-text-secondary);
 		margin: 0;
+	}
+
+	.charts-section {
+		margin-bottom: 2rem;
 	}
 </style>

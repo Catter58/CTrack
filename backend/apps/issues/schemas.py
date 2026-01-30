@@ -293,3 +293,19 @@ class GlobalIssuePaginatedResponseSchema(Schema):
     total: int
     page: int
     page_size: int
+
+
+class EditingUserSchema(Schema):
+    """Schema for user currently editing an issue."""
+
+    user_id: int
+    username: str
+    full_name: str
+    avatar_url: str | None = None
+
+
+class EditingStatusSchema(Schema):
+    """Schema for issue editing status response."""
+
+    is_editing: bool
+    editors: list[EditingUserSchema]

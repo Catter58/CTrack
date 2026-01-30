@@ -36,6 +36,38 @@ export interface CommentEventData {
   };
 }
 
+export interface EditingEventData {
+  issue_key: string;
+  user_id: number;
+  username: string;
+  full_name: string;
+  avatar_url: string | null;
+  is_editing: boolean;
+}
+
+export interface ActivityFeedEventData {
+  id: string;
+  action: string;
+  field_name: string;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  created_at: string;
+  issue: {
+    key: string;
+    title: string;
+    project: {
+      key: string;
+      name: string;
+    };
+  };
+  user: {
+    id: number;
+    username: string;
+    full_name: string;
+    avatar: string | null;
+  };
+}
+
 type EventCallback = (event: SSEEvent) => void;
 
 interface EventsState {

@@ -4,6 +4,7 @@
 
 import { writable, derived } from "svelte/store";
 import api from "$lib/api/client";
+import { progress } from "$lib/stores/progress";
 
 export interface StatusCount {
   status_id: string;
@@ -91,8 +92,14 @@ function createReportsStore() {
   return {
     subscribe,
 
-    async loadSummary(projectKey: string): Promise<ProjectSummary | null> {
+    async loadSummary(
+      projectKey: string,
+      showProgress: boolean = true,
+    ): Promise<ProjectSummary | null> {
       update((s) => ({ ...s, isLoadingSummary: true, error: null }));
+      const progressId = showProgress
+        ? progress.start("report", "Сводка по проекту")
+        : null;
 
       try {
         const data = await api.get<ProjectSummary>(
@@ -103,8 +110,10 @@ function createReportsStore() {
           summary: data,
           isLoadingSummary: false,
         }));
+        if (progressId) progress.done(progressId);
         return data;
       } catch (err) {
+        if (progressId) progress.error(progressId);
         const message =
           err instanceof Error
             ? err.message
@@ -121,8 +130,12 @@ function createReportsStore() {
     async loadCreatedVsResolved(
       projectKey: string,
       days: number = 30,
+      showProgress: boolean = true,
     ): Promise<CreatedVsResolved | null> {
       update((s) => ({ ...s, isLoadingCreatedVsResolved: true, error: null }));
+      const progressId = showProgress
+        ? progress.start("report", "Создано/решено")
+        : null;
 
       try {
         const data = await api.get<CreatedVsResolved>(
@@ -134,8 +147,10 @@ function createReportsStore() {
           createdVsResolved: data,
           isLoadingCreatedVsResolved: false,
         }));
+        if (progressId) progress.done(progressId);
         return data;
       } catch (err) {
+        if (progressId) progress.error(progressId);
         const message =
           err instanceof Error
             ? err.message
@@ -152,8 +167,12 @@ function createReportsStore() {
     async loadCycleTime(
       projectKey: string,
       days: number = 30,
+      showProgress: boolean = true,
     ): Promise<CycleTimeData | null> {
       update((s) => ({ ...s, isLoadingCycleTime: true, error: null }));
+      const progressId = showProgress
+        ? progress.start("report", "Время цикла")
+        : null;
 
       try {
         const data = await api.get<CycleTimeData>(
@@ -165,8 +184,10 @@ function createReportsStore() {
           cycleTime: data,
           isLoadingCycleTime: false,
         }));
+        if (progressId) progress.done(progressId);
         return data;
       } catch (err) {
+        if (progressId) progress.error(progressId);
         const message =
           err instanceof Error
             ? err.message

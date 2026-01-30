@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
-		DataTable,
 		Pagination,
 		Tag,
 		Link,
@@ -27,10 +26,17 @@
 		type GlobalTasksFilters
 	} from '$lib/stores/globalTasks';
 	import GlobalTasksFiltersComponent from '$lib/components/tasks/GlobalTasksFilters.svelte';
+	import VirtualDataTable from '$lib/components/VirtualDataTable.svelte';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
+	import {
+		saveTasksFilters,
+		loadTasksFilters,
+		hasUrlParams
+	} from '$lib/utils/filterStorage';
 
 	// Read filters from URL
 	let urlFilters = $derived.by<GlobalTasksFilters>(() => {
-		const params = $page.url.searchParams;
+		const params = page.url.searchParams;
 		const f: GlobalTasksFilters = {};
 
 		const projectId = params.get('project');
@@ -63,9 +69,8 @@
 	// Store sortable info separately since DataTable headers don't support custom properties
 	const sortableColumns = new Set(['key', 'title', 'priority', 'due_date', 'created_at']);
 
-	// DataTable headers - use any to avoid Carbon's strict typing
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const headers: any[] = [
+	// DataTable headers
+	const headers = [
 		{ key: 'key', value: 'Ключ' },
 		{ key: 'title', value: 'Название' },
 		{ key: 'project', value: 'Проект' },
@@ -76,8 +81,22 @@
 		{ key: 'created_at', value: 'Создано' }
 	];
 
+	// Row type for VirtualDataTable
+	interface TaskRow {
+		id: string;
+		key: string;
+		title: string;
+		project: { id: string; key: string; name: string };
+		status: { id: string; name: string; color: string };
+		priority: string;
+		assignee: { username: string; full_name: string | null } | null;
+		due_date: string | null;
+		created_at: string;
+		issue_type: { name: string; color: string };
+	}
+
 	// Transform tasks for DataTable
-	let rows = $derived(
+	let rows = $derived<TaskRow[]>(
 		$globalTasksList.map((task) => ({
 			id: task.id,
 			key: task.key,
@@ -96,13 +115,26 @@
 		// Load projects first
 		await globalTasks.loadProjects();
 
-		// Parse URL filters and load initial data
-		globalTasks.setFilters(urlFilters);
+		// Determine initial filters: URL params take precedence, then localStorage
+		let initialFilters: GlobalTasksFilters;
+		if (hasUrlParams(page.url)) {
+			initialFilters = urlFilters;
+		} else {
+			const savedFilters = loadTasksFilters();
+			if (savedFilters) {
+				initialFilters = savedFilters;
+				updateUrl(savedFilters);
+			} else {
+				initialFilters = urlFilters;
+			}
+		}
+
+		globalTasks.setFilters(initialFilters);
 		previousUrlSearch = window.location.search;
 
 		// Load statuses and assignees based on initial filter
-		if (urlFilters.project_id) {
-			const project = $globalTasksProjects.find((p) => p.id === urlFilters.project_id);
+		if (initialFilters.project_id) {
+			const project = $globalTasksProjects.find((p) => p.id === initialFilters.project_id);
 			if (project) {
 				await Promise.all([
 					globalTasks.loadStatuses(project.key),
@@ -119,7 +151,7 @@
 
 	// Reload when URL changes (after initialization)
 	$effect(() => {
-		const currentSearch = $page.url.search;
+		const currentSearch = page.url.search;
 		if (isInitialized && previousUrlSearch !== null && currentSearch !== previousUrlSearch) {
 			previousUrlSearch = currentSearch;
 			globalTasks.setFilters(urlFilters);
@@ -127,8 +159,8 @@
 		}
 	});
 
-	function updateUrl(filters: GlobalTasksFilters) {
-		const url = new URL($page.url);
+	function updateUrl(filters: GlobalTasksFilters): void {
+		const url = new URL(page.url);
 
 		// Clear existing params
 		url.searchParams.delete('project');
@@ -151,14 +183,15 @@
 		goto(url.toString(), { replaceState: true, noScroll: true });
 	}
 
-	async function handleFilterChange(filters: GlobalTasksFilters) {
+	async function handleFilterChange(filters: GlobalTasksFilters): Promise<void> {
 		globalTasks.setFilters(filters);
 		globalTasks.setPage(1);
 		updateUrl(filters);
+		saveTasksFilters(filters);
 		await globalTasks.loadTasks(filters);
 	}
 
-	async function handleProjectChange(projectKey: string | undefined) {
+	async function handleProjectChange(projectKey: string | undefined): Promise<void> {
 		// Load project-specific statuses and assignees
 		if (projectKey) {
 			await Promise.all([
@@ -171,7 +204,7 @@
 		}
 	}
 
-	async function handlePageChange(event: CustomEvent<{ page?: number; pageSize?: number }>) {
+	async function handlePageChange(event: CustomEvent<{ page?: number; pageSize?: number }>): Promise<void> {
 		if (event.detail.page !== undefined) {
 			globalTasks.setPage(event.detail.page);
 		}
@@ -181,7 +214,7 @@
 		await globalTasks.loadTasks();
 	}
 
-	async function handleSort(columnKey: string) {
+	async function handleSort(columnKey: string): Promise<void> {
 		if (!sortableColumns.has(columnKey)) return;
 
 		globalTasks.toggleSort(columnKey);
@@ -243,8 +276,12 @@
 		return assignee.full_name || assignee.username;
 	}
 
-	function handleRowClick(issueKey: string) {
-		goto(`/issues/${issueKey}`);
+	function handleRowClick(row: TaskRow): void {
+		goto(`/issues/${row.key}`);
+	}
+
+	async function handleRefresh(): Promise<void> {
+		await globalTasks.loadTasks();
 	}
 </script>
 
@@ -252,12 +289,13 @@
 	<title>Все задачи - CTrack</title>
 </svelte:head>
 
-<div class="tasks-page">
-	<header class="page-header">
-		<h1>Все задачи</h1>
-	</header>
+<PullToRefresh onRefresh={handleRefresh}>
+	<div class="tasks-page">
+		<header class="page-header">
+			<h1>Все задачи</h1>
+		</header>
 
-	<GlobalTasksFiltersComponent
+		<GlobalTasksFiltersComponent
 		projects={$globalTasksProjects}
 		statuses={$globalTasksStatuses}
 		assignees={$globalTasksAssignees}
@@ -291,8 +329,15 @@
 					<Loading small withOverlay={false} />
 				</div>
 			{/if}
-			<DataTable {headers} {rows} size="short">
-				<svelte:fragment slot="cell-header" let:header>
+			<VirtualDataTable
+				{headers}
+				{rows}
+				size="short"
+				containerHeight="calc(100vh - 380px)"
+				threshold={50}
+				onRowClick={handleRowClick}
+			>
+				{#snippet cellHeader({ header })}
 					{#if sortableColumns.has(header.key)}
 						<button
 							class="sortable-header"
@@ -311,8 +356,8 @@
 					{:else}
 						{header.value}
 					{/if}
-				</svelte:fragment>
-				<svelte:fragment slot="cell" let:row let:cell>
+				{/snippet}
+				{#snippet cell({ row, cell })}
 					{#if cell.key === 'key'}
 						<Link href="/issues/{row.key}">{cell.value}</Link>
 					{:else if cell.key === 'title'}
@@ -322,12 +367,7 @@
 								style="background-color: {row.issue_type.color}"
 								title={row.issue_type.name}
 							></span>
-							<button
-								class="title-link"
-								onclick={() => handleRowClick(row.key)}
-							>
-								{cell.value}
-							</button>
+							<span class="title-text">{cell.value}</span>
 						</div>
 					{:else if cell.key === 'project'}
 						<Tag size="sm" type="outline">{row.project.key}</Tag>
@@ -339,9 +379,9 @@
 						<div class="priority-cell">
 							<span
 								class="priority-dot"
-								style="background-color: {priorityColors[cell.value] || '#6f6f6f'}"
+								style="background-color: {priorityColors[cell.value as string] || '#6f6f6f'}"
 							></span>
-							<span>{priorityLabels[cell.value] || cell.value}</span>
+							<span>{priorityLabels[cell.value as string] || cell.value}</span>
 						</div>
 					{:else if cell.key === 'assignee'}
 						<div class="assignee-cell">
@@ -356,23 +396,23 @@
 						{#if cell.value}
 							<span
 								class="due-date"
-								class:overdue={isOverdue(cell.value)}
-								class:due-soon={isDueSoon(cell.value)}
+								class:overdue={isOverdue(cell.value as string)}
+								class:due-soon={isDueSoon(cell.value as string)}
 							>
-								{formatDate(cell.value)}
+								{formatDate(cell.value as string)}
 							</span>
 						{:else}
 							<span class="no-value">-</span>
 						{/if}
 					{:else if cell.key === 'created_at'}
-						<span class="created-at" title={formatDate(cell.value)}>
-							{formatRelativeTime(cell.value)}
+						<span class="created-at" title={formatDate(cell.value as string)}>
+							{formatRelativeTime(cell.value as string)}
 						</span>
 					{:else}
 						{cell.value}
 					{/if}
-				</svelte:fragment>
-			</DataTable>
+				{/snippet}
+			</VirtualDataTable>
 
 			<Pagination
 				pageSize={$globalTasksPagination.pageSize}
@@ -383,7 +423,8 @@
 			/>
 		{/if}
 	</div>
-</div>
+	</div>
+</PullToRefresh>
 
 <style>
 	.tasks-page {
@@ -484,19 +525,11 @@
 		flex-shrink: 0;
 	}
 
-	.title-link {
-		background: none;
-		border: none;
+	.title-text {
 		color: var(--cds-link-primary);
-		text-align: left;
-		cursor: pointer;
-		padding: 0;
-		font-size: inherit;
-	}
-
-	.title-link:hover {
-		color: var(--cds-link-primary-hover);
-		text-decoration: underline;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.priority-cell {
@@ -544,14 +577,6 @@
 
 	:global(.tasks-page .bx--data-table) {
 		width: 100%;
-	}
-
-	:global(.tasks-page .bx--data-table tbody tr) {
-		cursor: pointer;
-	}
-
-	:global(.tasks-page .bx--data-table tbody tr:hover) {
-		background: var(--cds-layer-hover);
 	}
 
 	:global(.tasks-page .bx--pagination) {

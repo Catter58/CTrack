@@ -42,7 +42,8 @@
 		return result;
 	});
 
-	let chartOptions = $derived(() => ({
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let chartOptions = $derived((): any => ({
 		title: 'Velocity команды',
 		axes: {
 			left: {
@@ -52,21 +53,21 @@
 			bottom: {
 				title: 'Спринт',
 				mapsTo: 'key',
-				scaleType: 'labels' as const
+				scaleType: 'labels'
 			}
 		},
 		comboChartTypes: [
 			{
-				type: 'grouped-bar' as const,
+				type: 'grouped-bar',
 				correspondingDatasets: ['Запланировано', 'Выполнено']
 			},
 			{
-				type: 'line' as const,
+				type: 'line',
 				correspondingDatasets: ['Средняя velocity']
 			}
 		],
 		height: '400px',
-		theme: 'g100' as const,
+		theme: 'g100',
 		color: {
 			scale: {
 				'Запланировано': '#8a3ffc',
@@ -75,7 +76,7 @@
 			}
 		},
 		legend: {
-			alignment: 'center' as const
+			alignment: 'center'
 		}
 	}));
 </script>

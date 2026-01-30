@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { Tag } from 'carbon-components-svelte';
-	import { Add } from 'carbon-icons-svelte';
+	import { Add, ChevronLeft, ChevronRight } from 'carbon-icons-svelte';
 	import { dndzone, type DndEvent } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import { IssueCard } from '$lib/components/board';
+	import { isMobile } from '$lib/stores/mobile';
 	import type { Issue, BoardColumn } from '$lib/stores/board';
 
 	interface WorkflowTransition {
@@ -47,6 +48,74 @@
 	let localColumns = $state<BoardColumn[]>([]);
 	let draggedIssueId = $state<string | null>(null);
 	const flipDurationMs = 200;
+
+	// Mobile column navigation
+	let currentColumnIndex = $state(0);
+	let boardContainerRef: HTMLDivElement | null = $state(null);
+	let touchStartX = $state(0);
+	let touchCurrentX = $state(0);
+	let isSwiping = $state(false);
+
+	// Navigate to specific column on mobile
+	function goToColumn(index: number) {
+		if (index < 0 || index >= localColumns.length) return;
+		currentColumnIndex = index;
+		if (boardContainerRef && $isMobile) {
+			const columnWidth = boardContainerRef.offsetWidth;
+			boardContainerRef.scrollTo({
+				left: index * columnWidth,
+				behavior: 'smooth'
+			});
+		}
+	}
+
+	function goToPrevColumn() {
+		goToColumn(currentColumnIndex - 1);
+	}
+
+	function goToNextColumn() {
+		goToColumn(currentColumnIndex + 1);
+	}
+
+	// Touch handlers for swipe navigation
+	function handleTouchStart(e: TouchEvent) {
+		if (!$isMobile) return;
+		touchStartX = e.touches[0].clientX;
+		touchCurrentX = touchStartX;
+		isSwiping = true;
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		if (!$isMobile || !isSwiping) return;
+		touchCurrentX = e.touches[0].clientX;
+	}
+
+	function handleTouchEnd() {
+		if (!$isMobile || !isSwiping) return;
+		isSwiping = false;
+
+		const swipeDistance = touchStartX - touchCurrentX;
+		const threshold = 50;
+
+		if (swipeDistance > threshold) {
+			goToNextColumn();
+		} else if (swipeDistance < -threshold) {
+			goToPrevColumn();
+		}
+
+		touchStartX = 0;
+		touchCurrentX = 0;
+	}
+
+	// Update current column index on scroll (for snap scrolling)
+	function handleScroll() {
+		if (!boardContainerRef || !$isMobile) return;
+		const columnWidth = boardContainerRef.offsetWidth;
+		const newIndex = Math.round(boardContainerRef.scrollLeft / columnWidth);
+		if (newIndex !== currentColumnIndex && newIndex >= 0 && newIndex < localColumns.length) {
+			currentColumnIndex = newIndex;
+		}
+	}
 
 	// Sync local columns when props change (but not during drag)
 	$effect(() => {
@@ -140,7 +209,52 @@
 	}
 </script>
 
-<div class="board-container">
+<!-- Mobile column indicator and navigation -->
+{#if $isMobile && localColumns.length > 0}
+	<div class="mobile-column-nav">
+		<button
+			class="nav-arrow"
+			onclick={goToPrevColumn}
+			disabled={currentColumnIndex === 0}
+			aria-label="Предыдущая колонка"
+		>
+			<ChevronLeft size={24} />
+		</button>
+		<div class="column-indicators">
+			{#each localColumns as column, index (column.status.id)}
+				<button
+					class="indicator"
+					class:active={index === currentColumnIndex}
+					style="--status-color: {column.status.color}"
+					onclick={() => goToColumn(index)}
+					aria-label={column.status.name}
+					aria-current={index === currentColumnIndex ? 'true' : undefined}
+				>
+					<span class="indicator-dot"></span>
+					<span class="indicator-label">{column.status.name}</span>
+				</button>
+			{/each}
+		</div>
+		<button
+			class="nav-arrow"
+			onclick={goToNextColumn}
+			disabled={currentColumnIndex === localColumns.length - 1}
+			aria-label="Следующая колонка"
+		>
+			<ChevronRight size={24} />
+		</button>
+	</div>
+{/if}
+
+<div
+	class="board-container"
+	class:mobile={$isMobile}
+	bind:this={boardContainerRef}
+	ontouchstart={handleTouchStart}
+	ontouchmove={handleTouchMove}
+	ontouchend={handleTouchEnd}
+	onscroll={handleScroll}
+>
 	<div class="board">
 		{#each localColumns as column (column.status.id)}
 			<div
@@ -301,5 +415,141 @@
 		gap: 0.5rem;
 		min-height: 100px;
 		transition: background-color 0.2s ease;
+	}
+
+	/* Mobile column navigation */
+	.mobile-column-nav {
+		display: none;
+	}
+
+	@media (max-width: 768px) {
+		.mobile-column-nav {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0.5rem 0.75rem;
+			background: var(--cds-layer);
+			border-bottom: 1px solid var(--cds-border-subtle);
+			position: sticky;
+			top: 0;
+			z-index: 10;
+		}
+
+		.nav-arrow {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 36px;
+			height: 36px;
+			border: none;
+			border-radius: 50%;
+			background: transparent;
+			color: var(--cds-text-primary);
+			cursor: pointer;
+			transition: all 0.15s ease;
+		}
+
+		.nav-arrow:hover:not(:disabled) {
+			background: var(--cds-layer-hover);
+		}
+
+		.nav-arrow:disabled {
+			color: var(--cds-text-disabled);
+			cursor: not-allowed;
+		}
+
+		.column-indicators {
+			display: flex;
+			align-items: center;
+			gap: 0.25rem;
+			overflow-x: auto;
+			max-width: calc(100% - 80px);
+			scrollbar-width: none;
+			-ms-overflow-style: none;
+		}
+
+		.column-indicators::-webkit-scrollbar {
+			display: none;
+		}
+
+		.indicator {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 0.25rem;
+			padding: 0.25rem 0.5rem;
+			border: none;
+			background: transparent;
+			cursor: pointer;
+			transition: all 0.15s ease;
+			min-width: 0;
+			flex-shrink: 0;
+		}
+
+		.indicator-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--status-color, var(--cds-border-subtle));
+			opacity: 0.5;
+			transition: all 0.15s ease;
+		}
+
+		.indicator.active .indicator-dot {
+			opacity: 1;
+			transform: scale(1.25);
+		}
+
+		.indicator-label {
+			font-size: 0.625rem;
+			color: var(--cds-text-secondary);
+			white-space: nowrap;
+			max-width: 60px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.indicator.active .indicator-label {
+			color: var(--cds-text-primary);
+			font-weight: 600;
+		}
+
+		/* Mobile board container */
+		.board-container.mobile {
+			padding: 0;
+			scroll-snap-type: x mandatory;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			-ms-overflow-style: none;
+		}
+
+		.board-container.mobile::-webkit-scrollbar {
+			display: none;
+		}
+
+		.board-container.mobile .board {
+			gap: 0;
+		}
+
+		.board-container.mobile .column {
+			width: 100vw;
+			min-width: 100vw;
+			max-width: 100vw;
+			scroll-snap-align: start;
+			border-radius: 0;
+			flex-shrink: 0;
+		}
+
+		.board-container.mobile .column-header {
+			position: sticky;
+			top: 0;
+			z-index: 5;
+			background: var(--cds-layer);
+		}
+
+		.board-container.mobile .column-content {
+			padding: 0.75rem;
+			min-height: calc(100vh - 200px);
+		}
 	}
 </style>

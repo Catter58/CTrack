@@ -10,6 +10,7 @@ export interface FeedUser {
   id: number;
   username: string;
   full_name: string | null;
+  avatar?: string | null;
 }
 
 export interface FeedIssue {
@@ -228,7 +229,6 @@ function createFeedStore() {
 
     async loadUsers() {
       try {
-        // Load all users that have activity
         const users = await api.get<FeedUser[]>("/api/users");
         update((s) => ({ ...s, users }));
         return users;
@@ -272,6 +272,72 @@ function createFeedStore() {
         isLoadingMore: false,
         error: null,
       });
+    },
+
+    /**
+     * Prepend a new item to the feed (for real-time updates).
+     * Returns the item id if added, null if filtered out or duplicate.
+     */
+    prependItem(item: FeedItem): string | null {
+      let state: FeedState | undefined;
+      const unsubscribe = subscribe((s) => {
+        state = s;
+      });
+      unsubscribe();
+
+      if (!state) return null;
+
+      // Check if item already exists
+      if (state.items.some((i) => i.id === item.id)) {
+        return null;
+      }
+
+      // Check if item matches current filters
+      const filters = state.filters;
+
+      if (filters.user_id !== undefined && item.user.id !== filters.user_id) {
+        return null;
+      }
+      if (
+        filters.project_id &&
+        item.issue.project.key !== filters.project_id &&
+        (item.issue.project as { id?: string }).id !== filters.project_id
+      ) {
+        return null;
+      }
+      if (filters.action && item.action !== filters.action) {
+        return null;
+      }
+      if (filters.date_from) {
+        const itemDate = new Date(item.created_at);
+        const fromDate = new Date(filters.date_from);
+        if (itemDate < fromDate) return null;
+      }
+      if (filters.date_to) {
+        const itemDate = new Date(item.created_at);
+        const toDate = new Date(filters.date_to);
+        if (itemDate > toDate) return null;
+      }
+
+      // Add item to beginning
+      update((s) => ({
+        ...s,
+        items: [item, ...s.items],
+      }));
+
+      return item.id;
+    },
+
+    /**
+     * Get current filters state.
+     */
+    getFilters(): FeedFilters {
+      let state: FeedState | undefined;
+      const unsubscribe = subscribe((s) => {
+        state = s;
+      });
+      unsubscribe();
+      return state?.filters ?? {};
     },
   };
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
@@ -11,7 +11,11 @@
 	} from 'carbon-icons-svelte';
 	import { Loading, Tag, Tile } from 'carbon-components-svelte';
 	import api from '$lib/api/client';
+	import VirtualList from '$lib/components/VirtualList.svelte';
 	import type { GlobalSearchResults, SearchIssue, SearchProject } from '$lib/stores/search';
+
+	// Virtualization threshold
+	const VIRTUALIZATION_THRESHOLD = 50;
 
 	// Extended search results with pagination
 	interface FullSearchResults {
@@ -27,13 +31,18 @@
 	let error = $state<string | null>(null);
 	let results = $state<FullSearchResults | null>(null);
 
-	// Pagination state
+	// Pagination state (used when not virtualizing)
 	let currentPage = $state(1);
 	let pageSize = $state(20);
 
+	// Whether to use virtualization
+	let useVirtualization = $derived(
+		results !== null && results.total_issues >= VIRTUALIZATION_THRESHOLD
+	);
+
 	// Initialize from URL params
 	onMount(() => {
-		const urlQuery = $page.url.searchParams.get('q');
+		const urlQuery = page.url.searchParams.get('q');
 		if (urlQuery) {
 			query = urlQuery;
 			performSearch();
@@ -49,7 +58,7 @@
 		}
 	});
 
-	async function performSearch() {
+	async function performSearch(): Promise<void> {
 		if (!query.trim()) {
 			results = null;
 			return;
@@ -61,7 +70,7 @@
 		try {
 			const data = await api.get<GlobalSearchResults>('/api/search', {
 				q: query,
-				limit: '50'
+				limit: '100'
 			});
 
 			results = {
@@ -77,33 +86,33 @@
 		}
 	}
 
-	function handleSubmit(e: Event) {
+	function handleSubmit(e: Event): void {
 		e.preventDefault();
 		currentPage = 1;
 		performSearch();
 	}
 
-	function handleInputChange(e: Event) {
+	function handleInputChange(e: Event): void {
 		query = (e.target as HTMLInputElement).value;
 	}
 
-	function navigateToIssue(issue: SearchIssue) {
+	function navigateToIssue(issue: SearchIssue): void {
 		goto(`/issues/${issue.key}`);
 	}
 
-	function navigateToProject(project: SearchProject) {
+	function navigateToProject(project: SearchProject): void {
 		goto(`/projects/${project.key}/board`);
 	}
 
-	// Paginated results
-	const paginatedIssues = $derived(() => {
-		if (!results) return [];
+	// Paginated results (used when not virtualizing)
+	let paginatedIssues = $derived.by(() => {
+		if (!results || useVirtualization) return [];
 		const start = (currentPage - 1) * pageSize;
 		return results.issues.slice(start, start + pageSize);
 	});
 
-	const totalPages = $derived(() => {
-		if (!results) return 0;
+	let totalPages = $derived.by(() => {
+		if (!results || useVirtualization) return 0;
 		return Math.ceil(results.total_issues / pageSize);
 	});
 </script>
@@ -158,15 +167,13 @@
 					</h2>
 					<div class="projects-grid">
 						{#each results.projects as project (project.id)}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<div
+							<button
 								class="project-card"
 								onclick={() => navigateToProject(project)}
 							>
 								<div class="project-key">{project.key}</div>
 								<div class="project-name">{project.name}</div>
-							</div>
+							</button>
 						{/each}
 					</div>
 				</section>
@@ -178,54 +185,84 @@
 						<Document size={20} />
 						Задачи ({results.total_issues})
 					</h2>
-					<div class="issues-list">
-						{#each paginatedIssues() as issue (issue.id)}
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<div
-								class="issue-card"
-								onclick={() => navigateToIssue(issue)}
-							>
-								<div class="issue-main">
-									<span class="issue-key">{issue.key}</span>
-									<span class="issue-title">{issue.title}</span>
-								</div>
-								<div class="issue-meta">
-									<span class="issue-project">{issue.project.name}</span>
-									<Tag
-										size="sm"
-										style="background-color: {issue.status.color}20; color: {issue.status
-											.color}; border: none;"
-									>
-										{issue.status.name}
-									</Tag>
-								</div>
-							</div>
-						{/each}
-					</div>
 
-					{#if totalPages() > 1}
-						<div class="pagination-wrapper">
-							<button
-								class="pagination-button"
-								disabled={currentPage === 1}
-								onclick={() => (currentPage = Math.max(1, currentPage - 1))}
+					{#if useVirtualization}
+						<div class="issues-list-virtual">
+							<VirtualList
+								items={results.issues}
+								itemHeight={56}
+								height="calc(100vh - 400px)"
+								threshold={1}
 							>
-								<ChevronLeft size={20} />
-								Назад
-							</button>
-							<span class="pagination-info">
-								Страница {currentPage} из {totalPages()}
-							</span>
-							<button
-								class="pagination-button"
-								disabled={currentPage === totalPages()}
-								onclick={() => (currentPage = Math.min(totalPages(), currentPage + 1))}
-							>
-								Вперед
-								<ChevronRight size={20} />
-							</button>
+								{#snippet children({ item: issue })}
+									<button
+										class="issue-card"
+										onclick={() => navigateToIssue(issue)}
+									>
+										<div class="issue-main">
+											<span class="issue-key">{issue.key}</span>
+											<span class="issue-title">{issue.title}</span>
+										</div>
+										<div class="issue-meta">
+											<span class="issue-project">{issue.project.name}</span>
+											<Tag
+												size="sm"
+												style="background-color: {issue.status.color}20; color: {issue.status.color}; border: none;"
+											>
+												{issue.status.name}
+											</Tag>
+										</div>
+									</button>
+								{/snippet}
+							</VirtualList>
 						</div>
+					{:else}
+						<div class="issues-list">
+							{#each paginatedIssues as issue (issue.id)}
+								<button
+									class="issue-card"
+									onclick={() => navigateToIssue(issue)}
+								>
+									<div class="issue-main">
+										<span class="issue-key">{issue.key}</span>
+										<span class="issue-title">{issue.title}</span>
+									</div>
+									<div class="issue-meta">
+										<span class="issue-project">{issue.project.name}</span>
+										<Tag
+											size="sm"
+											style="background-color: {issue.status.color}20; color: {issue.status.color}; border: none;"
+										>
+											{issue.status.name}
+										</Tag>
+									</div>
+								</button>
+							{/each}
+						</div>
+
+						{#if totalPages > 1}
+							<div class="pagination-wrapper">
+								<button
+									class="pagination-button"
+									disabled={currentPage === 1}
+									onclick={() => (currentPage = Math.max(1, currentPage - 1))}
+								>
+									<ChevronLeft size={20} />
+									Назад
+								</button>
+								<span class="pagination-info">
+									Страница {currentPage} из {totalPages}
+								</span>
+								<button
+									class="pagination-button"
+									disabled={currentPage === totalPages}
+									onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+								>
+									Вперед
+									<ChevronRight size={20} />
+								</button>
+							</div>
+						{/if}
 					{/if}
 				</section>
 			{/if}
@@ -375,6 +412,8 @@
 		padding: 1rem;
 		cursor: pointer;
 		transition: all 0.15s ease;
+		text-align: left;
+		width: 100%;
 	}
 
 	.project-card:hover {
@@ -394,10 +433,15 @@
 		color: var(--cds-text-primary);
 	}
 
-	.issues-list {
+	.issues-list,
+	.issues-list-virtual {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+
+	.issues-list-virtual :global(.virtual-list-item) {
+		padding-bottom: 0.5rem;
 	}
 
 	.issue-card {
@@ -410,6 +454,8 @@
 		padding: 0.75rem 1rem;
 		cursor: pointer;
 		transition: all 0.15s ease;
+		width: 100%;
+		text-align: left;
 	}
 
 	.issue-card:hover {

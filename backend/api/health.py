@@ -2,12 +2,16 @@
 Health check endpoints.
 """
 
+import shutil
 from typing import Any
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.http import HttpRequest
 from ninja import Router
+
+DISK_WARNING_THRESHOLD_PERCENT = 10
 
 router = Router()
 
@@ -33,6 +37,32 @@ def check_redis() -> dict[str, str]:
         return {"status": "error", "message": str(e)}
 
 
+def check_disk() -> dict[str, Any]:
+    """Check available disk space on storage volume."""
+    try:
+        path = getattr(settings, "MEDIA_ROOT", "/")
+        usage = shutil.disk_usage(path)
+
+        free_percent = (usage.free / usage.total) * 100
+
+        result: dict[str, Any] = {
+            "total_gb": round(usage.total / (1024**3), 2),
+            "used_gb": round(usage.used / (1024**3), 2),
+            "free_gb": round(usage.free / (1024**3), 2),
+            "free_percent": round(free_percent, 1),
+        }
+
+        if free_percent < DISK_WARNING_THRESHOLD_PERCENT:
+            result["status"] = "warning"
+            result["message"] = f"Low disk space: {free_percent:.1f}% free"
+        else:
+            result["status"] = "ok"
+
+        return result
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.get("", auth=None)
 def health_check(request: HttpRequest) -> tuple[int, dict[str, Any]]:
     """
@@ -43,11 +73,11 @@ def health_check(request: HttpRequest) -> tuple[int, dict[str, Any]]:
     checks = {
         "database": check_database(),
         "redis": check_redis(),
+        "disk": check_disk(),
     }
 
-    status = (
-        "healthy" if all(c["status"] == "ok" for c in checks.values()) else "unhealthy"
-    )
+    all_ok = all(c["status"] in ("ok", "warning") for c in checks.values())
+    status = "healthy" if all_ok else "unhealthy"
     http_status = 200 if status == "healthy" else 503
 
     return http_status, {

@@ -48,7 +48,8 @@
 		return result;
 	});
 
-	let chartOptions = $derived(() => ({
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let chartOptions = $derived((): any => ({
 		title: `Burndown: ${data?.sprint_name || 'Спринт'}`,
 		axes: {
 			left: {
@@ -58,11 +59,11 @@
 			bottom: {
 				title: 'Дата',
 				mapsTo: 'key',
-				scaleType: 'labels' as const
+				scaleType: 'labels'
 			}
 		},
 		height: '400px',
-		theme: 'g100' as const,
+		theme: 'g100',
 		color: {
 			scale: {
 				'Идеальная линия': '#8a3ffc',
@@ -70,13 +71,13 @@
 			}
 		},
 		legend: {
-			alignment: 'center' as const
+			alignment: 'center'
 		},
 		points: {
 			radius: 3,
 			filled: true
 		},
-		curve: 'curveMonotoneX' as const
+		curve: 'curveMonotoneX'
 	}));
 
 	let progressPercent = $derived(() => {

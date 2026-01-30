@@ -4,6 +4,7 @@
 
 import { writable, derived } from "svelte/store";
 import api from "$lib/api/client";
+import { progress } from "$lib/stores/progress";
 import type { Project } from "$lib/stores/projects";
 
 export interface GlobalIssueType {
@@ -108,8 +109,14 @@ function createGlobalTasksStore() {
   return {
     subscribe,
 
-    async loadTasks(filters?: GlobalTasksFilters) {
+    async loadTasks(
+      filters?: GlobalTasksFilters,
+      showProgress: boolean = true,
+    ) {
       update((s) => ({ ...s, isLoading: true, error: null }));
+      const progressId = showProgress
+        ? progress.start("loading", "Загрузка задач")
+        : null;
 
       try {
         let state: GlobalTasksState | undefined;
@@ -118,7 +125,10 @@ function createGlobalTasksStore() {
         });
         unsubscribe();
 
-        if (!state) return;
+        if (!state) {
+          if (progressId) progress.done(progressId);
+          return;
+        }
 
         const params: Record<string, string> = {
           page: String(state.pagination.page),
@@ -171,8 +181,10 @@ function createGlobalTasksStore() {
           isLoading: false,
         }));
 
+        if (progressId) progress.done(progressId);
         return response;
       } catch (err) {
+        if (progressId) progress.error(progressId);
         const message =
           err instanceof Error ? err.message : "Не удалось загрузить задачи";
         update((s) => ({
@@ -195,12 +207,16 @@ function createGlobalTasksStore() {
       }
     },
 
-    async loadStatuses(projectId?: string) {
+    async loadStatuses(projectKey?: string) {
+      // Statuses are project-specific, so we can only load them with a project
+      if (!projectKey) {
+        update((s) => ({ ...s, statuses: [] }));
+        return [];
+      }
       try {
-        const endpoint = projectId
-          ? `/api/projects/${projectId}/statuses`
-          : "/api/statuses";
-        const statuses = await api.get<GlobalStatus[]>(endpoint);
+        const statuses = await api.get<GlobalStatus[]>(
+          `/api/projects/${projectKey}/statuses`,
+        );
         update((s) => ({ ...s, statuses }));
         return statuses;
       } catch (err) {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		Button,
 		Tile,
@@ -45,11 +44,18 @@
 	import { epicsStore, epicsList } from '$lib/stores/epics';
 	import RichEditor from '$lib/components/RichEditor.svelte';
 	import { SprintHeader, BoardFilters, BoardSkeleton, BoardView, ListView, ViewSwitcher } from '$lib/components/board';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 	import { goto } from '$app/navigation';
 	import { toasts } from '$lib/stores/toast';
 	import api from '$lib/api/client';
+	import {
+		saveBoardFilters,
+		loadBoardFilters,
+		clearBoardFilters,
+		hasUrlParams
+	} from '$lib/utils/filterStorage';
 
-	const projectKey = $derived($page.params.key);
+	const projectKey = $derived(page.params.key);
 
 	// Custom field definition type
 	interface CustomFieldDefinition {
@@ -74,12 +80,12 @@
 
 	// Current view from URL (default: board)
 	let currentView = $derived.by<'board' | 'list'>(() => {
-		const view = $page.url.searchParams.get('view');
+		const view = page.url.searchParams.get('view');
 		return view === 'list' ? 'list' : 'board';
 	});
 
 	let boardFilters = $derived.by<BoardFilterValues>(() => {
-		const params = $page.url.searchParams;
+		const params = page.url.searchParams;
 		const f: BoardFilterValues = {};
 		const assignee = params.get('assignee');
 		if (assignee !== null) {
@@ -105,7 +111,7 @@
 	});
 
 	function handleViewChange(view: 'board' | 'list') {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		if (view === 'board') {
 			url.searchParams.delete('view');
 		} else {
@@ -115,7 +121,9 @@
 	}
 
 	function handleFilterChange(filters: BoardFilterValues) {
-		const url = new URL($page.url);
+		if (!projectKey) return;
+
+		const url = new URL(page.url);
 
 		// Clear existing filter params
 		url.searchParams.delete('assignee');
@@ -143,6 +151,9 @@
 
 		// Navigate with new URL (without page reload)
 		goto(url.toString(), { replaceState: true, noScroll: true });
+
+		// Save filters to localStorage
+		saveBoardFilters(projectKey, filters);
 
 		// Reload board with filters
 		const boardId = $currentBoard?.id;
@@ -219,7 +230,8 @@
 	let currentSprint = $state<SprintWithStats | null>(null);
 
 	onMount(async () => {
-		const key = get(page).params.key!;
+		const key = page.params.key;
+		if (!key) return;
 		// Load project, members, sprints, and saved filters in parallel
 		await Promise.all([
 			projects.loadProject(key),
@@ -227,10 +239,41 @@
 			sprints.loadSprints(key),
 			filtersStore.load(key)
 		]);
-		// Load board data with initial filters from URL
+
+		// Determine initial filters: URL params take precedence, then localStorage
+		let initialFilters: BoardFilterValues;
+		if (hasUrlParams(page.url)) {
+			initialFilters = boardFilters;
+		} else {
+			const savedFiltersFromStorage = loadBoardFilters(key);
+			if (savedFiltersFromStorage) {
+				initialFilters = savedFiltersFromStorage;
+				// Update URL to reflect restored filters
+				const url = new URL(page.url);
+				if (initialFilters.assignee_id !== undefined) {
+					url.searchParams.set('assignee', String(initialFilters.assignee_id));
+				}
+				if (initialFilters.type_id) {
+					url.searchParams.set('type', initialFilters.type_id);
+				}
+				if (initialFilters.priority) {
+					url.searchParams.set('priority', initialFilters.priority);
+				}
+				if (initialFilters.search) {
+					url.searchParams.set('search', initialFilters.search);
+				}
+				if (initialFilters.sprint_id) {
+					url.searchParams.set('sprint', initialFilters.sprint_id);
+				}
+				goto(url.toString(), { replaceState: true, noScroll: true });
+			} else {
+				initialFilters = boardFilters;
+			}
+		}
+
+		// Load board data with initial filters
 		const boards = await board.loadBoards(key);
 		if (boards.length > 0) {
-			const initialFilters = boardFilters;
 			const boardData = await board.loadBoardData(boards[0].id, initialFilters);
 
 			// If scrum board, load sprint data
@@ -429,6 +472,15 @@
 		}
 	}
 
+	// Pull-to-refresh handler
+	async function handleRefresh(): Promise<void> {
+		const boardId = $currentBoard?.id;
+		if (boardId) {
+			await board.loadBoardData(boardId, boardFilters);
+			toasts.success('Обновлено');
+		}
+	}
+
 	// Keyboard shortcuts
 	function handleKeyDown(event: KeyboardEvent) {
 		if (
@@ -541,6 +593,7 @@
 					{selectedFilterId}
 					onFilterChange={handleFilterChange}
 					onSavedFilterSelect={handleSavedFilterApply}
+					onClear={() => projectKey && clearBoardFilters(projectKey)}
 				/>
 			</div>
 			<div class="filters-right">
@@ -569,26 +622,28 @@
 			</div>
 		</div>
 
-		{#if currentView === 'board'}
-			<BoardView
-				columns={$boardColumns}
-				workflowTransitions={$workflowTransitions}
-				{members}
-				onStatusUpdate={handleStatusUpdate}
-				onPriorityUpdate={handleUpdatePriority}
-				onAssigneeUpdate={handleUpdateAssignee}
-				onStoryPointsUpdate={handleUpdateStoryPoints}
-				onQuickCreate={handleQuickCreate}
-				onTransitionError={handleTransitionError}
-			/>
-		{:else}
-			<ListView
-				issues={$flatIssuesList}
-				{members}
-				onPriorityUpdate={handleUpdatePriority}
-				onAssigneeUpdate={handleUpdateAssignee}
-			/>
-		{/if}
+		<PullToRefresh onRefresh={handleRefresh}>
+			{#if currentView === 'board'}
+				<BoardView
+					columns={$boardColumns}
+					workflowTransitions={$workflowTransitions}
+					{members}
+					onStatusUpdate={handleStatusUpdate}
+					onPriorityUpdate={handleUpdatePriority}
+					onAssigneeUpdate={handleUpdateAssignee}
+					onStoryPointsUpdate={handleUpdateStoryPoints}
+					onQuickCreate={handleQuickCreate}
+					onTransitionError={handleTransitionError}
+				/>
+			{:else}
+				<ListView
+					issues={$flatIssuesList}
+					{members}
+					onPriorityUpdate={handleUpdatePriority}
+					onAssigneeUpdate={handleUpdateAssignee}
+				/>
+			{/if}
+		</PullToRefresh>
 	</div>
 {:else}
 	<div class="not-found">
@@ -641,7 +696,7 @@
 		<div class="form-row">
 			<div class="form-field">
 				<Dropdown
-					titleText="Исполнитель"
+					label="Исполнитель"
 					selectedId={newIssueAssigneeId}
 					items={memberItems}
 					on:select={(e) => (newIssueAssigneeId = e.detail.selectedId)}
@@ -653,7 +708,7 @@
 					dateFormat="d.m.Y"
 					on:change={(e) => {
 						const detail = e.detail;
-						if (detail && typeof detail === 'object' && 'dateStr' in detail) {
+						if (detail && typeof detail === 'object' && 'dateStr' in detail && typeof detail.dateStr === 'string') {
 							const parts = detail.dateStr.split('.');
 							if (parts.length === 3) {
 								newIssueDueDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -669,7 +724,7 @@
 		{#if epicItems.length > 1}
 			<div class="form-group">
 				<Dropdown
-					titleText="Эпик"
+					label="Эпик"
 					selectedId={newIssueEpicId}
 					items={epicItems}
 					on:select={(e) => (newIssueEpicId = e.detail.selectedId)}
@@ -704,8 +759,8 @@
 							/>
 						{:else if field.field_type === 'number'}
 							<NumberInput
-								label={field.name}
-								value={typeof customFieldsForm[field.field_key] === 'number' ? customFieldsForm[field.field_key] : null}
+								labelText={field.name}
+								value={typeof customFieldsForm[field.field_key] === 'number' ? (customFieldsForm[field.field_key] as number) : null}
 								on:change={(e) => {
 									customFieldsForm[field.field_key] = e.detail ?? null;
 								}}
@@ -734,7 +789,7 @@
 							</DatePicker>
 						{:else if field.field_type === 'select'}
 							<Dropdown
-								titleText={field.name}
+								label={field.name}
 								selectedId={customFieldsForm[field.field_key]?.toString() || ''}
 								items={[
 									{ id: '', text: 'Не выбрано' },
@@ -746,8 +801,8 @@
 							/>
 						{:else if field.field_type === 'multiselect'}
 							<MultiSelect
-								titleText={field.name}
-								selectedIds={Array.isArray(customFieldsForm[field.field_key]) ? customFieldsForm[field.field_key] : []}
+								label={field.name}
+								selectedIds={Array.isArray(customFieldsForm[field.field_key]) ? (customFieldsForm[field.field_key] as string[]) : []}
 								items={field.options.map((opt) => ({ id: opt, text: opt }))}
 								on:select={(e) => {
 									customFieldsForm[field.field_key] = e.detail.selectedIds;
@@ -986,5 +1041,80 @@
 		z-index: 10001 !important;
 		top: 100% !important;
 		left: 0 !important;
+	}
+
+	/* Mobile responsive styles */
+	@media (max-width: 768px) {
+		.project-page {
+			height: auto;
+			min-height: calc(100vh - 48px - 64px);
+			overflow: visible;
+		}
+
+		.project-header {
+			flex-direction: column;
+			gap: 1rem;
+			padding: 1rem;
+		}
+
+		.header-content {
+			width: 100%;
+		}
+
+		.project-title {
+			font-size: 1.25rem;
+		}
+
+		.header-actions {
+			width: 100%;
+			flex-wrap: wrap;
+			overflow-x: auto;
+			padding-bottom: 0.5rem;
+			scrollbar-width: none;
+			-ms-overflow-style: none;
+		}
+
+		.header-actions::-webkit-scrollbar {
+			display: none;
+		}
+
+		.header-actions :global(.bx--btn) {
+			flex-shrink: 0;
+			padding: 0 0.75rem;
+		}
+
+		.filters-container {
+			flex-direction: column;
+			align-items: stretch;
+			padding: 0.75rem;
+			gap: 0.75rem;
+		}
+
+		.filters-left {
+			overflow-x: auto;
+			padding-bottom: 0.5rem;
+			scrollbar-width: none;
+			-ms-overflow-style: none;
+		}
+
+		.filters-left::-webkit-scrollbar {
+			display: none;
+		}
+
+		.filters-right {
+			justify-content: flex-end;
+		}
+
+		.form-row {
+			flex-direction: column;
+		}
+
+		.form-field {
+			width: 100%;
+		}
+
+		.not-found {
+			padding: 1.5rem;
+		}
 	}
 </style>

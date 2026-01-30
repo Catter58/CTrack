@@ -1,14 +1,22 @@
 <script lang="ts">
 	import { SkeletonText } from 'carbon-components-svelte';
+	import { fade, slide } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
 	import type { FeedItem as FeedItemType } from '$lib/stores/feed';
 	import FeedItem from './FeedItem.svelte';
+	import VirtualList from '../VirtualList.svelte';
 
 	interface Props {
 		items: FeedItemType[];
 		isLoading: boolean;
+		newItemIds?: Set<string>;
+		threshold?: number;
 	}
 
-	let { items, isLoading }: Props = $props();
+	let { items, isLoading, newItemIds = new Set(), threshold = 50 }: Props = $props();
+
+	// Whether to use virtualization
+	let useVirtualization = $derived(items.length >= threshold);
 
 	// Group items by date
 	interface DateGroup {
@@ -71,6 +79,38 @@
 
 		return result;
 	});
+
+	// For virtualization, flatten items with date headers as markers
+	interface FlatItem {
+		type: 'header' | 'item';
+		id: string;
+		dateLabel?: string;
+		dateKey?: string;
+		item?: FeedItemType;
+	}
+
+	let flatItems = $derived.by<FlatItem[]>(() => {
+		const result: FlatItem[] = [];
+
+		for (const group of groupedItems) {
+			result.push({
+				type: 'header',
+				id: `header-${group.date}`,
+				dateLabel: group.label,
+				dateKey: group.date
+			});
+
+			for (const item of group.items) {
+				result.push({
+					type: 'item',
+					id: `item-${item.id}`,
+					item
+				});
+			}
+		}
+
+		return result;
+	});
 </script>
 
 <div class="feed-timeline">
@@ -95,16 +135,49 @@
 			<p>Нет активности</p>
 			<p class="empty-hint">Попробуйте изменить параметры фильтра</p>
 		</div>
+	{:else if useVirtualization}
+		<div class="timeline-line"></div>
+		<div class="virtual-feed-container">
+			<VirtualList
+				items={flatItems}
+				itemHeight={120}
+				height="calc(100vh - 300px)"
+				overscan={3}
+				threshold={1}
+			>
+				{#snippet children({ item: flatItem })}
+					{#if flatItem.type === 'header'}
+						<div class="date-header virtual-header">
+							<span class="date-label">{flatItem.dateLabel}</span>
+						</div>
+					{:else if flatItem.item}
+						<div
+							class="feed-item-wrapper"
+							class:new-item={newItemIds.has(flatItem.item.id)}
+						>
+							<FeedItem item={flatItem.item} />
+						</div>
+					{/if}
+				{/snippet}
+			</VirtualList>
+		</div>
 	{:else}
 		<div class="timeline-line"></div>
 		{#each groupedItems as group (group.date)}
-			<div class="date-group">
+			<div class="date-group" in:fade={{ duration: 200 }}>
 				<div class="date-header">
 					<span class="date-label">{group.label}</span>
 				</div>
 				<div class="group-items">
 					{#each group.items as item (item.id)}
-						<FeedItem {item} />
+						<div
+							class:new-item={newItemIds.has(item.id)}
+							in:slide={{ duration: 300, delay: 50 }}
+							out:fade={{ duration: 150 }}
+							animate:flip={{ duration: 300 }}
+						>
+							<FeedItem {item} />
+						</div>
 					{/each}
 				</div>
 			</div>
@@ -162,6 +235,21 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		padding-left: 1rem;
+	}
+
+	.virtual-feed-container {
+		padding-left: 0;
+	}
+
+	.virtual-header {
+		padding-top: 0.5rem;
+		padding-bottom: 0.5rem;
+		background: var(--cds-background);
+	}
+
+	.feed-item-wrapper {
+		padding-left: 1rem;
+		padding-bottom: 0.75rem;
 	}
 
 	.skeleton-container {
@@ -224,5 +312,21 @@
 		font-size: 0.875rem !important;
 		margin-top: 0.5rem !important;
 		color: var(--cds-text-helper);
+	}
+
+	.new-item {
+		animation: highlightNew 2s ease-out;
+	}
+
+	@keyframes highlightNew {
+		0% {
+			background-color: rgba(15, 98, 254, 0.15);
+			box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.3);
+			border-radius: 6px;
+		}
+		100% {
+			background-color: transparent;
+			box-shadow: none;
+		}
 	}
 </style>

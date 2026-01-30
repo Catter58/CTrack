@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import {
 		Button,
@@ -67,7 +66,7 @@
 		page_size: number;
 	}
 
-	const projectKey = $derived($page.params.key);
+	const projectKey = $derived(page.params.key);
 
 	let issues = $state<TableIssue[]>([]);
 	let totalCount = $state(0);
@@ -81,7 +80,7 @@
 
 	// Filter values from URL
 	let filterValues = $derived.by<FilterValues>(() => {
-		const params = $page.url.searchParams;
+		const params = page.url.searchParams;
 		const f: FilterValues = {};
 
 		const statusId = params.get('status');
@@ -189,7 +188,8 @@
 	let previousUrlSearch = $state<string | null>(null);
 
 	onMount(async () => {
-		const key = get(page).params.key!;
+		const key = page.params.key;
+		if (!key) return;
 		await Promise.all([
 			projects.loadProject(key),
 			projects.loadMembers(key),
@@ -205,7 +205,7 @@
 
 	// Reload issues when URL params change (after initial load)
 	$effect(() => {
-		const currentSearch = $page.url.search;
+		const currentSearch = page.url.search;
 		// Only reload if URL actually changed after initialization
 		if (isInitialized && previousUrlSearch !== null && currentSearch !== previousUrlSearch) {
 			previousUrlSearch = currentSearch;
@@ -275,7 +275,7 @@
 	}
 
 	function applyFilters(filters: FilterValues): void {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 
 		url.searchParams.delete('status');
 		url.searchParams.delete('priority');

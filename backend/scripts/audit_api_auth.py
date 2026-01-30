@@ -6,6 +6,7 @@ Scans all API endpoints to identify their authentication requirements.
 Generates a comprehensive report in JSON format.
 """
 
+import argparse
 import json
 import os
 import sys
@@ -119,12 +120,96 @@ def audit_api_endpoints():
     }
 
 
+def verify_auth_enforcement(results):
+    """
+    Verify that all endpoints have explicit auth configuration.
+
+    Args:
+        results: Audit results from audit_api_endpoints()
+
+    Returns:
+        bool: True if all endpoints have explicit auth, False otherwise
+    """
+    print("Starting authentication enforcement verification...")
+
+    # Check for endpoints with unknown auth type (indicates missing explicit auth)
+    unknown_endpoints = [e for e in results["endpoints"] if e["auth_type"] == "unknown"]
+
+    # Check for endpoints with "none" auth type (might need to be explicitly configured)
+    none_endpoints = [e for e in results["endpoints"] if e["auth_type"] == "none"]
+
+    # Expected public endpoints that should not require auth
+    public_expected = [
+        "/api/health",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/refresh",
+    ]
+
+    # Find endpoints with no auth that are not in the expected public list
+    unexpected_public = [
+        e
+        for e in none_endpoints
+        if not any(e["path"].startswith(expected) for expected in public_expected)
+    ]
+
+    verification_passed = True
+
+    # Report findings
+    print(f"\nTotal endpoints: {results['total_endpoints']}")
+    print(
+        f"Endpoints with explicit auth: {results['total_endpoints'] - len(unknown_endpoints)}"
+    )
+
+    if unknown_endpoints:
+        print(
+            f"\n❌ FAIL: Found {len(unknown_endpoints)} endpoints with unknown auth type:"
+        )
+        for endpoint in unknown_endpoints:
+            print(f"  {endpoint['method']:6} {endpoint['path']}")
+        verification_passed = False
+
+    if unexpected_public:
+        print(
+            f"\n❌ FAIL: Found {len(unexpected_public)} endpoints without explicit auth configuration:"
+        )
+        for endpoint in unexpected_public:
+            print(f"  {endpoint['method']:6} {endpoint['path']}")
+        verification_passed = False
+
+    if verification_passed:
+        print("\n✅ PASS: All endpoints have explicit auth configuration")
+        print(f"  - Required auth: {results['summary'].get('required', 0)}")
+        print(f"  - Optional auth: {results['summary'].get('optional', 0)}")
+        print(f"  - Query token auth: {results['summary'].get('required_query', 0)}")
+        print(
+            f"  - Public (explicitly configured): {len(none_endpoints) - len(unexpected_public)}"
+        )
+
+    return verification_passed
+
+
 def main():
     """Main function to run the audit and generate report."""
-    print("Starting API authentication audit...")
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="API Authentication Audit Script")
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify that all endpoints have explicit auth configuration and exit",
+    )
+    args = parser.parse_args()
 
     # Run the audit
     results = audit_api_endpoints()
+
+    # If verify mode, run verification and exit
+    if args.verify:
+        success = verify_auth_enforcement(results)
+        sys.exit(0 if success else 1)
+
+    # Otherwise, run full audit report
+    print("Starting API authentication audit...")
 
     # Print summary to console
     print("\n=== Authentication Audit Summary ===")

@@ -145,3 +145,6 @@ media/
 *.tmp
 *.temp
 .cache/
+
+# Auto Claude data directory
+.auto-claude/

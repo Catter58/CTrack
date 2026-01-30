@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tag } from 'carbon-components-svelte';
+	import { Tag, Portal } from 'carbon-components-svelte';
 	import { Calendar, User, ChevronDown, Edit, UserFollow, Checkmark } from 'carbon-icons-svelte';
 	import { goto } from '$app/navigation';
 	import type { Issue } from '$lib/stores/board';
@@ -355,7 +355,9 @@
 							{getPriorityLabel(issue.priority)}
 							<ChevronDown size={16} />
 						</span>
-						{#if showPriorityMenu}
+					</div>
+					{#if showPriorityMenu}
+						<Portal>
 							<div class="dropdown-menu dropdown-fixed" style={priorityMenuStyle}>
 								{#each priorities as p}
 									<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -371,8 +373,8 @@
 									</div>
 								{/each}
 							</div>
-						{/if}
-					</div>
+						</Portal>
+					{/if}
 				{:else}
 					<span
 						class="priority"
@@ -438,7 +440,9 @@
 							{/if}
 							<ChevronDown size={16} />
 						</span>
-						{#if showAssigneeMenu}
+					</div>
+					{#if showAssigneeMenu}
+						<Portal>
 							<div class="dropdown-menu dropdown-fixed" style={assigneeMenuStyle}>
 								<!-- svelte-ignore a11y_click_events_have_key_events -->
 								<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -463,8 +467,8 @@
 									</div>
 								{/each}
 							</div>
-						{/if}
-					</div>
+						</Portal>
+					{/if}
 				{:else if issue.assignee}
 					<span class="assignee" title={issue.assignee.full_name || issue.assignee.username}>
 						<User size={16} />
@@ -626,7 +630,8 @@
 		background: var(--cds-layer-hover);
 	}
 
-	.dropdown-menu {
+	/* Dropdown styles - global because they render in Portal */
+	:global(.dropdown-menu.dropdown-fixed) {
 		min-width: 160px;
 		background: #262626;
 		border: 1px solid #525252;
@@ -637,7 +642,7 @@
 		z-index: 10000;
 	}
 
-	.dropdown-item {
+	:global(.dropdown-menu .dropdown-item) {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -649,24 +654,29 @@
 		white-space: nowrap;
 	}
 
-	.dropdown-item:hover {
+	:global(.dropdown-menu .dropdown-item:hover) {
 		background: #393939;
 	}
 
-	.dropdown-item.selected {
+	:global(.dropdown-menu .dropdown-item.selected) {
 		background: #4c4c4c;
 		font-weight: 600;
 	}
 
-	.priority-dot {
+	:global(.dropdown-menu .priority-dot) {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
 	}
 
-	.dropdown-item :global(svg) {
+	:global(.dropdown-menu .dropdown-item svg) {
 		flex-shrink: 0;
 		color: var(--cds-text-secondary);
+	}
+
+	:global(.dropdown-menu .unassigned) {
+		color: var(--cds-text-secondary);
+		font-style: italic;
 	}
 
 	.unassigned {

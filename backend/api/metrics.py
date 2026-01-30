@@ -180,7 +180,9 @@ def metrics_endpoint(request: HttpRequest) -> HttpResponse:
     Prometheus metrics endpoint.
 
     Returns metrics in Prometheus text format.
-    No authentication required for Prometheus scraping.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    for Prometheus monitoring systems to scrape metrics.
     """
     # Collect current metrics
     collect_user_metrics()
@@ -199,5 +201,10 @@ def metrics_endpoint(request: HttpRequest) -> HttpResponse:
 
 @router.get("/health", auth=None)
 def metrics_health(request: HttpRequest) -> dict:
-    """Health check for metrics endpoint."""
+    """
+    Health check for metrics endpoint.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    for monitoring systems to verify metrics service availability.
+    """
     return {"status": "ok", "metrics_enabled": True}

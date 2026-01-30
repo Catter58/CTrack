@@ -101,6 +101,11 @@
 	let showDeleteModal = $state(false);
 	let isDeleting = $state(false);
 
+	// Create subtask modal
+	let showSubtaskModal = $state(false);
+	let newSubtaskTitle = $state('');
+	let isCreatingSubtask = $state(false);
+
 	// Editing indicator state
 	let otherEditors = $state<Editor[]>([]);
 	let editingHeartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -381,6 +386,45 @@
 		showDeleteModal = false;
 	}
 
+	async function handleCreateSubtask() {
+		if (!$currentIssue || !newSubtaskTitle.trim()) return;
+
+		isCreatingSubtask = true;
+		try {
+			const projectKey = issueKey.split('-')[0];
+			// Find subtask type for this project
+			const issueTypes = await api.get<Array<{ id: string; name: string; is_subtask: boolean }>>(
+				`/api/projects/${projectKey}/issue-types`
+			);
+			const subtaskType = issueTypes.find((t) => t.is_subtask);
+
+			if (!subtaskType) {
+				console.error('No subtask type found for project');
+				return;
+			}
+
+			await api.post(`/api/projects/${projectKey}/issues`, {
+				title: newSubtaskTitle.trim(),
+				issue_type_id: subtaskType.id,
+				parent_id: $currentIssue.id,
+				priority: 'medium'
+			});
+
+			// Reload issue to get updated children
+			await issue.load(issueKey);
+			newSubtaskTitle = '';
+			showSubtaskModal = false;
+		} catch (err) {
+			console.error('Failed to create subtask:', err);
+		} finally {
+			isCreatingSubtask = false;
+		}
+	}
+
+	function openSubtaskModal() {
+		showSubtaskModal = true;
+	}
+
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleString('ru-RU', {
 			day: 'numeric',
@@ -599,6 +643,7 @@
 						childrenCount={$currentIssue.children_count}
 						completedChildrenCount={$currentIssue.completed_children_count}
 						{doneStatusId}
+						onAddSubtask={openSubtaskModal}
 						onComplete={(childKey, statusId) => issue.quickCompleteChild(childKey, statusId)}
 					/>
 				{/if}
@@ -1003,6 +1048,25 @@
 		Вы уверены, что хотите удалить задачу <strong>{$currentIssue?.key}</strong>?
 		Это действие нельзя отменить.
 	</p>
+</Modal>
+
+<!-- Create Subtask Modal -->
+<Modal
+	bind:open={showSubtaskModal}
+	modalHeading="Новая подзадача"
+	primaryButtonText={isCreatingSubtask ? 'Создание...' : 'Создать'}
+	secondaryButtonText="Отмена"
+	primaryButtonDisabled={isCreatingSubtask || !newSubtaskTitle.trim()}
+	on:click:button--primary={handleCreateSubtask}
+	on:click:button--secondary={() => (showSubtaskModal = false)}
+	on:close={() => (showSubtaskModal = false)}
+>
+	<TextInput
+		bind:value={newSubtaskTitle}
+		labelText="Название"
+		placeholder="Что нужно сделать?"
+		disabled={isCreatingSubtask}
+	/>
 </Modal>
 
 <style>

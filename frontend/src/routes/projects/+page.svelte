@@ -14,7 +14,8 @@
 		Tag,
 		Toggle
 	} from 'carbon-components-svelte';
-	import { Add, FolderDetails, Archive } from 'carbon-icons-svelte';
+	import { Add, FolderDetails, Archive, Demo } from 'carbon-icons-svelte';
+	import api from '$lib/api/client';
 	import {
 		projects,
 		projectsList,
@@ -29,6 +30,8 @@
 	let isCreating = $state(false);
 	let createError = $state<string | null>(null);
 	let showArchived = $state(false);
+	let isCreatingDemo = $state(false);
+	let demoError = $state<string | null>(null);
 
 	// Check URL params for ?new=true
 	$effect(() => {
@@ -101,6 +104,23 @@
 			year: 'numeric'
 		});
 	}
+
+	async function handleCreateDemo() {
+		isCreatingDemo = true;
+		demoError = null;
+
+		try {
+			const response = await api.post<{ project_key: string; message: string }>(
+				'/api/demo/create-demo'
+			);
+			await projects.loadProjects(showArchived);
+			goto(`/projects/${response.project_key}`);
+		} catch (err) {
+			demoError = err instanceof Error ? err.message : 'Не удалось создать демо-проект';
+		} finally {
+			isCreatingDemo = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -121,6 +141,14 @@
 				labelB=""
 				size="sm"
 			/>
+			<Button
+				kind="tertiary"
+				icon={Demo}
+				disabled={isCreatingDemo}
+				on:click={handleCreateDemo}
+			>
+				{isCreatingDemo ? 'Создание...' : 'Демо-проект'}
+			</Button>
 			<Button icon={Add} on:click={() => (showCreateModal = true)}>Новый проект</Button>
 		</div>
 	</header>
@@ -134,6 +162,15 @@
 		/>
 	{/if}
 
+	{#if demoError}
+		<InlineNotification
+			kind="error"
+			title="Ошибка создания демо-проекта"
+			subtitle={demoError}
+			on:close={() => (demoError = null)}
+		/>
+	{/if}
+
 	{#if $projectsLoading}
 		<div class="loading-state">
 			<Loading withOverlay={false} />
@@ -143,8 +180,18 @@
 			<Tile>
 				<FolderDetails size={32} />
 				<h3>Нет проектов</h3>
-				<p>Создайте первый проект, чтобы начать работу</p>
-				<Button icon={Add} on:click={() => (showCreateModal = true)}>Создать проект</Button>
+				<p>Создайте первый проект или загрузите демо-проект с примерами</p>
+				<div class="empty-actions">
+					<Button icon={Add} on:click={() => (showCreateModal = true)}>Создать проект</Button>
+					<Button
+						kind="tertiary"
+						icon={Demo}
+						disabled={isCreatingDemo}
+						on:click={handleCreateDemo}
+					>
+						{isCreatingDemo ? 'Создание...' : 'Демо-проект'}
+					</Button>
+				</div>
 			</Tile>
 		</div>
 	{:else}
@@ -328,5 +375,12 @@
 
 	.empty-state :global(svg) {
 		color: var(--cds-icon-secondary);
+	}
+
+	.empty-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		justify-content: center;
 	}
 </style>

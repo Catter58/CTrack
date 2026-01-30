@@ -10,6 +10,7 @@ from api.admin import router as admin_router
 from api.auth import router as auth_router
 from api.boards import router as boards_router
 from api.custom_fields import router as custom_fields_router
+from api.demo import router as demo_router
 from api.events import router as events_router
 from api.feed import router as feed_router
 from api.health import router as health_router
@@ -73,3 +74,6 @@ api.add_router("", search_router, tags=["Search"])
 
 # Metrics endpoints (Prometheus)
 api.add_router("/metrics", metrics_router, tags=["Metrics"])
+
+# Demo project endpoint
+api.add_router("/demo", demo_router, tags=["Demo"])

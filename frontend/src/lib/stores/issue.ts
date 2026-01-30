@@ -64,6 +64,15 @@ export interface WorkflowTransition {
   name: string;
 }
 
+export interface ParentIssue {
+  id: string;
+  key: string;
+  title: string;
+  status: Status;
+  due_date: string | null;
+  assignee: User | null;
+}
+
 export interface IssueDetail {
   id: string;
   key: string;
@@ -81,6 +90,7 @@ export interface IssueDetail {
   assignee: User | null;
   reporter: User;
   parent_id: string | null;
+  parent: ParentIssue | null;
   epic_id: string | null;
   children_count: number;
   completed_children_count: number;

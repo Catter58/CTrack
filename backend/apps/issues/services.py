@@ -424,7 +424,15 @@ class IssueService:
         return (
             Issue.objects.filter(key=key.upper())
             .select_related(
-                "issue_type", "status", "assignee", "reporter", "project", "sprint"
+                "issue_type",
+                "status",
+                "assignee",
+                "reporter",
+                "project",
+                "sprint",
+                "parent",
+                "parent__status",
+                "parent__assignee",
             )
             .first()
         )

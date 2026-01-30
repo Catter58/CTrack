@@ -786,6 +786,39 @@
 					</div>
 				</Tile>
 
+				{#if $currentIssue.parent}
+					<Tile class="parent-card">
+						<h3>Родительская задача</h3>
+						<a href="/issues/{$currentIssue.parent.key}" class="parent-link">
+							<span class="parent-key">{$currentIssue.parent.key}</span>
+							<span class="parent-title">{$currentIssue.parent.title}</span>
+						</a>
+						<div class="parent-details">
+							<div class="parent-row">
+								<span class="parent-label">Статус</span>
+								<Tag
+									size="sm"
+									type={$currentIssue.parent.status.category === 'done' ? 'green' : $currentIssue.parent.status.category === 'in_progress' ? 'blue' : 'gray'}
+								>
+									{$currentIssue.parent.status.name}
+								</Tag>
+							</div>
+							{#if $currentIssue.parent.due_date}
+								<div class="parent-row">
+									<span class="parent-label">Срок</span>
+									<span class="parent-value">{formatDateShort($currentIssue.parent.due_date)}</span>
+								</div>
+							{/if}
+							{#if $currentIssue.parent.assignee}
+								<div class="parent-row">
+									<span class="parent-label">Исполнитель</span>
+									<span class="parent-value">{formatUserName($currentIssue.parent.assignee)}</span>
+								</div>
+							{/if}
+						</div>
+					</Tile>
+				{/if}
+
 				<Tile>
 					<h3>Детали</h3>
 					<div class="details-list">
@@ -1369,6 +1402,65 @@
 	.unassigned {
 		color: var(--cds-text-secondary);
 		font-style: italic;
+	}
+
+	/* Parent task card */
+	:global(.parent-card) {
+		background: var(--cds-layer-accent) !important;
+		border-left: 3px solid var(--cds-border-interactive);
+	}
+
+	.parent-link {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		text-decoration: none;
+		color: inherit;
+		margin-bottom: 0.75rem;
+	}
+
+	.parent-link:hover {
+		text-decoration: underline;
+	}
+
+	.parent-key {
+		font-size: 0.75rem;
+		color: var(--cds-text-secondary);
+		font-weight: 500;
+	}
+
+	.parent-title {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--cds-text-primary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+
+	.parent-details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.parent-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.parent-label {
+		font-size: 0.75rem;
+		color: var(--cds-text-secondary);
+	}
+
+	.parent-value {
+		font-size: 0.75rem;
+		color: var(--cds-text-primary);
 	}
 
 	/* Details list styling */

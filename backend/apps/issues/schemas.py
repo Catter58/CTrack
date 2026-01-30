@@ -122,6 +122,17 @@ class IssueSchema(Schema):
     updated_at: datetime
 
 
+class ParentIssueSchema(Schema):
+    """Schema for parent issue info (used in subtask view)."""
+
+    id: UUID
+    key: str
+    title: str
+    status: StatusSchema
+    due_date: date | None
+    assignee: UserSchema | None
+
+
 class IssueDetailSchema(IssueSchema):
     """Schema for detailed issue response."""
 
@@ -130,9 +141,24 @@ class IssueDetailSchema(IssueSchema):
     assignee: UserSchema | None
     reporter: UserSchema
     parent_id: UUID | None
+    parent: ParentIssueSchema | None = None
     epic_id: UUID | None
     children_count: int = 0
     completed_children_count: int = 0
+
+    @staticmethod
+    def resolve_parent(obj) -> dict | None:
+        """Resolve parent issue details."""
+        if not obj.parent:
+            return None
+        return {
+            "id": obj.parent.id,
+            "key": obj.parent.key,
+            "title": obj.parent.title,
+            "status": obj.parent.status,
+            "due_date": obj.parent.due_date,
+            "assignee": obj.parent.assignee,
+        }
 
 
 class IssueListSchema(Schema):

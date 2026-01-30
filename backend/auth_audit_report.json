@@ -1,0 +1,922 @@
+{
+  "total_endpoints": 114,
+  "summary": {
+    "unknown": 7,
+    "required": 106,
+    "required_query": 1
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/admin/settings",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get System Settings",
+      "description": "Get system settings."
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/settings",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update System Settings",
+      "description": "Update system settings."
+    },
+    {
+      "method": "POST",
+      "path": "/admin/settings/smtp/test",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Test Smtp Settings",
+      "description": "Test SMTP connection with provided settings."
+    },
+    {
+      "method": "GET",
+      "path": "/admin/stats",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get System Stats",
+      "description": "Get system statistics."
+    },
+    {
+      "method": "GET",
+      "path": "/admin/stats/timeseries",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Timeseries Stats",
+      "description": "Get time-series statistics for usage graphs.\n\nArgs:\n    days: Number of days to look back (default 30)\n    aggregation: Aggregation level - 'day', 'week', or 'month'"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Admin Users",
+      "description": "List all users with pagination and filters."
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Admin User",
+      "description": "Create a new user (admin only)."
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/{user_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Admin User",
+      "description": "Get user details by ID."
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/{user_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Admin User",
+      "description": "Update user status (is_active, is_staff)."
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/{user_id}/reset-password",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Reset User Password",
+      "description": "Generate a password reset token for user."
+    },
+    {
+      "method": "DELETE",
+      "path": "/attachments/{attachment_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Attachment",
+      "description": "Delete an attachment. Only the author or project admin can delete."
+    },
+    {
+      "method": "GET",
+      "path": "/attachments/{attachment_id}/download",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Download Attachment",
+      "description": "Download an attachment file."
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Login",
+      "description": "Login user with email and password.\n\nReturns access and refresh tokens on success."
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Logout",
+      "description": "Logout user by invalidating refresh token.\n\nRequires authentication. Adds refresh token to blacklist."
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Me",
+      "description": "Get current authenticated user's profile.\n\nRequires valid access token in Authorization header."
+    },
+    {
+      "method": "POST",
+      "path": "/auth/refresh",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Refresh",
+      "description": "Refresh access token using refresh token.\n\nReturns new access and refresh tokens, invalidates old refresh token."
+    },
+    {
+      "method": "POST",
+      "path": "/auth/register",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Register",
+      "description": "Register a new user.\n\nCreates a new user account and returns access/refresh tokens."
+    },
+    {
+      "method": "DELETE",
+      "path": "/boards/{board_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Board",
+      "description": "Delete board."
+    },
+    {
+      "method": "GET",
+      "path": "/boards/{board_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Board",
+      "description": "Get board by ID."
+    },
+    {
+      "method": "PATCH",
+      "path": "/boards/{board_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Board",
+      "description": "Update board."
+    },
+    {
+      "method": "GET",
+      "path": "/boards/{board_id}/issues",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Board Issues",
+      "description": "Get board data with issues grouped by columns.\n\nOptional filters:\n- assignee_id: Filter by assignee (use 0 for unassigned)\n- type_id: Filter by issue type\n- priority: Filter by priority (highest, high, medium, low, lowest)\n- search: Search in title (case-insensitive)\n- sprint_id: Filter by sprint ID (use \"backlog\" for issues without sprint)"
+    },
+    {
+      "method": "DELETE",
+      "path": "/comments/{comment_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Comment",
+      "description": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/comments/{comment_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Comment",
+      "description": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/custom-fields/{field_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Custom Field",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/custom-fields/{field_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Custom Field",
+      "description": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/custom-fields/{field_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Custom Field",
+      "description": ""
+    },
+    {
+      "method": "POST",
+      "path": "/demo/create-demo",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Создать демо-проект",
+      "description": "Create a demo project with sample data.\n\nCreates:\n- Project with key \"DEMO\"\n- 2 sprints (one active, one planned)\n- 2 epics with progress\n- 10+ issues (stories, tasks, bugs)\n- Subtasks for some issues"
+    },
+    {
+      "method": "GET",
+      "path": "/events",
+      "auth_type": "required_query",
+      "auth_class": "AuthQueryToken",
+      "summary": "Event Stream",
+      "description": "SSE endpoint for real-time updates.\n\nStreams events for all projects the user is a member of,\nor optionally filter by a specific project_id.\n\nEvents:\n- issue.created - new issue created\n- issue.updated - issue fields changed\n- issue.moved - issue status changed (board move)\n- issue.deleted - issue deleted\n- sprint.updated - sprint changed\n- comment.added - new comment\n- member.joined - new project member\n- connected - initial connection confirmation\n- heartbeat - keep-alive signal (every 30 seconds)"
+    },
+    {
+      "method": "GET",
+      "path": "/feed",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Feed",
+      "description": "Get activity feed from all projects where user is a member.\n\nCursor-based pagination for infinite scroll.\nCursor format: ISO datetime|UUID (created_at|id).\n\nQuery parameters:\n- user_id: Filter by action performer\n- project_id: Filter by project UUID\n- action: Filter by action type (status_changed, commented, etc.)\n- date_from, date_to: Filter by date range\n- cursor: Pagination cursor (created_at|id)\n- limit: Number of items (default 50, max 100)"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Health Check",
+      "description": "Проверка работоспособности сервиса.\n\nВозвращает статус базы данных и кэша.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nfor monitoring systems, load balancers, and orchestration platforms."
+    },
+    {
+      "method": "GET",
+      "path": "/health/live",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Liveness Check",
+      "description": "Kubernetes liveness probe.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nfor Kubernetes liveness checks."
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Readiness Check",
+      "description": "Kubernetes readiness probe.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nfor Kubernetes readiness checks."
+    },
+    {
+      "method": "DELETE",
+      "path": "/issue-types/{issue_type_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Issue Type",
+      "description": "Delete issue type."
+    },
+    {
+      "method": "GET",
+      "path": "/issue-types/{issue_type_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Issue Type",
+      "description": "Get issue type by ID."
+    },
+    {
+      "method": "PATCH",
+      "path": "/issue-types/{issue_type_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Issue Type",
+      "description": "Update issue type."
+    },
+    {
+      "method": "GET",
+      "path": "/issues",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Global Issues",
+      "description": "Get all issues from projects where the current user is a member.\n\nSupports filtering, sorting and pagination.\n\nQuery parameters:\n- project_id: Filter by specific project UUID\n- status_id: Filter by status UUID\n- assignee_id: Filter by assignee user ID (use 0 for unassigned)\n- reporter_id: Filter by reporter user ID\n- priority: Filter by priority (highest, high, medium, low, lowest)\n- issue_type_id: Filter by issue type UUID\n- sprint_id: Filter by sprint UUID\n- due_date_from, due_date_to: Filter by due date range\n- created_from, created_to: Filter by creation date range\n- search: Search in title and key\n- sort_by: Sort field (created_at, updated_at, due_date, priority)\n- sort_order: Sort order (asc, desc)\n- page: Page number (default 1)\n- page_size: Items per page (default 20, max 100)"
+    },
+    {
+      "method": "DELETE",
+      "path": "/issues/{issue_key}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Issue",
+      "description": "Delete issue."
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Issue",
+      "description": "Get issue by key."
+    },
+    {
+      "method": "PATCH",
+      "path": "/issues/{issue_key}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Issue",
+      "description": "Update issue."
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}/activity",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Issue Activity",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}/attachments",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Attachments",
+      "description": "Get all attachments for an issue."
+    },
+    {
+      "method": "POST",
+      "path": "/issues/{issue_key}/attachments",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Upload Attachment",
+      "description": "Upload a file attachment to an issue."
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}/children",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Issue Children",
+      "description": "Get children (subtasks) of an issue."
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}/comments",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Comments",
+      "description": "Get comments for issue."
+    },
+    {
+      "method": "POST",
+      "path": "/issues/{issue_key}/comments",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Add Comment",
+      "description": "Add comment to issue."
+    },
+    {
+      "method": "DELETE",
+      "path": "/issues/{issue_key}/editing",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Stop Editing",
+      "description": "Stop an editing session for an issue.\n\nRemoves user from Redis and broadcasts SSE event."
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}/editing",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Editing Status",
+      "description": "Get current editing status for an issue.\n\nReturns list of users currently editing."
+    },
+    {
+      "method": "POST",
+      "path": "/issues/{issue_key}/editing",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Start Editing",
+      "description": "Start an editing session for an issue.\n\nSets a Redis key with TTL to track who is editing.\nBroadcasts SSE event to notify other users."
+    },
+    {
+      "method": "PATCH",
+      "path": "/issues/{issue_key}/sprint",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Issue Sprint",
+      "description": "Update issue sprint assignment."
+    },
+    {
+      "method": "GET",
+      "path": "/issues/{issue_key}/transitions",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Issue Transitions",
+      "description": "Get available status transitions for issue."
+    },
+    {
+      "method": "POST",
+      "path": "/issues/{issue_key}/transitions/{transition_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Execute Transition",
+      "description": "Execute a workflow transition on an issue."
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Metrics Endpoint",
+      "description": "Prometheus metrics endpoint.\n\nReturns metrics in Prometheus text format.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nfor Prometheus monitoring systems to scrape metrics."
+    },
+    {
+      "method": "GET",
+      "path": "/metrics/health",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Metrics Health",
+      "description": "Health check for metrics endpoint.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nfor monitoring systems to verify metrics service availability."
+    },
+    {
+      "method": "GET",
+      "path": "/projects",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Projects",
+      "description": "Get all projects for current user."
+    },
+    {
+      "method": "POST",
+      "path": "/projects",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Project",
+      "description": "Create a new project."
+    },
+    {
+      "method": "DELETE",
+      "path": "/projects/filters/{filter_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Saved Filter",
+      "description": "Delete saved filter (owner only)."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/filters/{filter_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Saved Filter",
+      "description": "Get saved filter by ID."
+    },
+    {
+      "method": "PATCH",
+      "path": "/projects/filters/{filter_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Saved Filter",
+      "description": "Update saved filter (owner only)."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/filters/{filter_id}/issues",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Filter Issues",
+      "description": "Get issues matching saved filter criteria."
+    },
+    {
+      "method": "DELETE",
+      "path": "/projects/{key}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Archive Or Delete Project",
+      "description": "Archive a project (soft delete) or permanently delete it."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Project",
+      "description": "Get project by key."
+    },
+    {
+      "method": "PATCH",
+      "path": "/projects/{key}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Project",
+      "description": "Update project details."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/backlog",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Backlog",
+      "description": "Get backlog issues (not in active/planned sprints)."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/boards",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Boards",
+      "description": "Get boards for project."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/boards",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Board",
+      "description": "Create a new board."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/epics",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Epics",
+      "description": "Get all epics for a project with progress statistics."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/filters",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Saved Filters",
+      "description": "Get saved filters for project (own + shared)."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/filters",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Saved Filter",
+      "description": "Create a new saved filter."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/issue-types",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Issue Types",
+      "description": "Get issue types for project."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/issue-types",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Issue Type",
+      "description": "Create a new issue type for project."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/issues",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Issues",
+      "description": "Get issues for project with optional filters and pagination."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/issues",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Issue",
+      "description": "Create a new issue."
+    },
+    {
+      "method": "PATCH",
+      "path": "/projects/{key}/issues/bulk-update",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Bulk Update Issues",
+      "description": "Bulk update story points for multiple issues."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/members",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Members",
+      "description": "Get project members."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/members",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Add Member",
+      "description": "Add a member to project."
+    },
+    {
+      "method": "DELETE",
+      "path": "/projects/{key}/members/{user_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Remove Member",
+      "description": "Remove member from project."
+    },
+    {
+      "method": "PATCH",
+      "path": "/projects/{key}/members/{user_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Member Role",
+      "description": "Update member's role."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/reports/created-vs-resolved",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Created Vs Resolved",
+      "description": "Get created vs resolved issues report for given period."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/reports/cycle-time",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Cycle Time",
+      "description": "Get cycle time report: average time from created to done status."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/reports/summary",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Report Summary",
+      "description": "Get summary report: issues count by status, type, and assignee."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/search",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Project search",
+      "description": "Search issues within a specific project"
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/statuses",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Statuses",
+      "description": "Get statuses for project."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/statuses",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Status",
+      "description": "Create a new status for project."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{key}/workflow",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Project Workflow",
+      "description": "Get all workflow transitions for project."
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{key}/workflow",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Workflow Transition",
+      "description": "Create a new workflow transition for project."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_key}/custom-fields",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Custom Fields",
+      "description": ""
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{project_key}/custom-fields",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Custom Field",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_key}/custom-fields/for-type/{type_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Custom Fields For Type",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_key}/metrics/velocity",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Velocity",
+      "description": "Get velocity metrics for the last N completed sprints."
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_key}/sprints",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Sprints",
+      "description": ""
+    },
+    {
+      "method": "POST",
+      "path": "/projects/{project_key}/sprints",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Create Sprint",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/search",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Global search",
+      "description": "Search across all user's accessible projects"
+    },
+    {
+      "method": "POST",
+      "path": "/setup/complete",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Setup Complete",
+      "description": "Complete initial setup.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nto allow creation of the first admin user before any authentication exists."
+    },
+    {
+      "method": "GET",
+      "path": "/setup/status",
+      "auth_type": "unknown",
+      "auth_class": "NOT_SET_TYPE",
+      "summary": "Setup Status",
+      "description": "Check if initial setup is required.\n\nPublic endpoint (auth=None) - intentionally accessible without authentication\nto allow the setup wizard to determine if initial configuration is needed."
+    },
+    {
+      "method": "DELETE",
+      "path": "/sprints/{sprint_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Sprint",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/sprints/{sprint_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Sprint",
+      "description": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/sprints/{sprint_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Sprint",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/sprints/{sprint_id}/burndown",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Burndown",
+      "description": "Get burndown chart data for a sprint."
+    },
+    {
+      "method": "POST",
+      "path": "/sprints/{sprint_id}/complete",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Complete Sprint",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/sprints/{sprint_id}/issues",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Sprint Issues",
+      "description": ""
+    },
+    {
+      "method": "POST",
+      "path": "/sprints/{sprint_id}/start",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Start Sprint",
+      "description": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/statuses/{status_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Status",
+      "description": "Delete status."
+    },
+    {
+      "method": "GET",
+      "path": "/statuses/{status_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Status",
+      "description": "Get status by ID."
+    },
+    {
+      "method": "PATCH",
+      "path": "/statuses/{status_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Status",
+      "description": "Update status."
+    },
+    {
+      "method": "GET",
+      "path": "/users",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "List Users",
+      "description": "Get list of users with optional search."
+    },
+    {
+      "method": "GET",
+      "path": "/users/me/notification-preferences",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get Notification Preferences",
+      "description": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/users/me/notification-preferences",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Notification Preferences",
+      "description": ""
+    },
+    {
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Get User",
+      "description": "Get user by ID."
+    },
+    {
+      "method": "PATCH",
+      "path": "/users/{user_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update User",
+      "description": "Update user profile."
+    },
+    {
+      "method": "DELETE",
+      "path": "/users/{user_id}/avatar",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Avatar",
+      "description": "Delete user avatar."
+    },
+    {
+      "method": "POST",
+      "path": "/users/{user_id}/avatar",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Upload Avatar",
+      "description": "Upload and process user avatar.\n\nAccepts an image file (JPEG, PNG, GIF, WebP) up to 5MB.\nThe image is resized to 256x256 and converted to JPEG.\nSupports cropping coordinates from the frontend."
+    },
+    {
+      "method": "PATCH",
+      "path": "/users/{user_id}/password",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Change Password",
+      "description": "Change user password."
+    },
+    {
+      "method": "DELETE",
+      "path": "/workflow/{transition_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Delete Workflow Transition",
+      "description": "Delete a workflow transition."
+    },
+    {
+      "method": "PATCH",
+      "path": "/workflow/{transition_id}",
+      "auth_type": "required",
+      "auth_class": "AuthBearer",
+      "summary": "Update Workflow Transition",
+      "description": "Update a workflow transition."
+    }
+  ]
+}

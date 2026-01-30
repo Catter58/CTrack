@@ -1,0 +1,1137 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0 -- /Users/reinhardbitter/PycharmProjects/CTrack/backend/.venv/bin/python
+cachedir: .pytest_cache
+django: version: 6.0.1, settings: ctrack.settings.test (from ini)
+rootdir: /Users/reinhardbitter/PycharmProjects/CTrack/.auto-claude/worktrees/tasks/002-api-authentication-enforcement/backend
+configfile: pyproject.toml
+plugins: django-4.11.1, asyncio-1.3.0, Faker-40.1.2, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 166 items
+
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_auth_register_public PASSED [  0%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_auth_login_public PASSED [  1%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_auth_refresh_public PASSED [  1%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_check_public FAILED [  2%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_ready_public PASSED [  3%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_live_public PASSED [  3%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_setup_status_public PASSED [  4%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_auth_logout_requires_auth PASSED [  4%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_auth_me_requires_auth PASSED [  5%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_projects_list_requires_auth PASSED [  6%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_projects_create_requires_auth PASSED [  6%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_issues_list_requires_auth PASSED [  7%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_users_list_requires_auth PASSED [  7%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_protected_endpoints_require_auth PASSED [  8%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_auth_me_with_valid_token PASSED [  9%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_projects_list_with_valid_token PASSED [  9%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_users_list_with_valid_token PASSED [ 10%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_invalid_token_rejected PASSED [ 10%]
+api/tests/test_setup.py::TestSetupStatus::test_setup_required_no_users PASSED [ 11%]
+api/tests/test_setup.py::TestSetupStatus::test_setup_not_required_with_users PASSED [ 12%]
+api/tests/test_setup.py::TestSetupComplete::test_setup_complete_success PASSED [ 12%]
+api/tests/test_setup.py::TestSetupComplete::test_setup_complete_already_done PASSED [ 13%]
+api/tests/test_setup.py::TestSetupComplete::test_setup_complete_short_password PASSED [ 13%]
+api/tests/test_setup.py::TestSetupComplete::test_setup_complete_empty_template PASSED [ 14%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_no_filters_returns_all_issues PASSED [ 15%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_by_assignee PASSED [ 15%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_by_unassigned PASSED [ 16%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_by_issue_type PASSED [ 16%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_by_priority PASSED [ 17%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_by_search PASSED [ 18%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_search_case_insensitive PASSED [ 18%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_multiple_filters_combined PASSED [ 19%]
+apps/boards/tests/test_filters.py::TestBoardFilters::test_filter_no_matches PASSED [ 19%]
+apps/boards/tests/test_filters.py::TestBoardFiltersAPI::test_get_board_issues_with_filters PASSED [ 20%]
+apps/boards/tests/test_filters.py::TestBoardFiltersAPI::test_get_board_issues_with_search PASSED [ 21%]
+apps/boards/tests/test_filters.py::TestBoardFiltersAPI::test_get_board_issues_with_priority PASSED [ 21%]
+apps/boards/tests/test_filters.py::TestBoardFiltersAPI::test_get_board_issues_unassigned PASSED [ 22%]
+apps/boards/tests/test_sprint_board.py::TestScrumBoard::test_create_scrum_board_assigns_active_sprint PASSED [ 22%]
+apps/boards/tests/test_sprint_board.py::TestScrumBoard::test_create_scrum_board_with_specific_sprint PASSED [ 23%]
+apps/boards/tests/test_sprint_board.py::TestScrumBoard::test_scrum_board_filters_by_sprint PASSED [ 24%]
+apps/boards/tests/test_sprint_board.py::TestScrumBoard::test_scrum_board_without_sprint_uses_active PASSED [ 24%]
+apps/boards/tests/test_sprint_board.py::TestScrumBoard::test_scrum_board_no_active_sprint_shows_nothing PASSED [ 25%]
+apps/boards/tests/test_sprint_board.py::TestScrumBoard::test_kanban_board_shows_all_issues PASSED [ 25%]
+apps/issues/tests/test_backlog.py::TestBacklogList::test_get_backlog PASSED [ 26%]
+apps/issues/tests/test_backlog.py::TestBacklogList::test_backlog_excludes_sprint_issues PASSED [ 27%]
+apps/issues/tests/test_backlog.py::TestBacklogList::test_backlog_includes_completed_sprint_issues PASSED [ 27%]
+apps/issues/tests/test_backlog.py::TestBacklogList::test_backlog_pagination PASSED [ 28%]
+apps/issues/tests/test_backlog.py::TestUpdateIssueSprint::test_add_issue_to_sprint PASSED [ 28%]
+apps/issues/tests/test_backlog.py::TestUpdateIssueSprint::test_remove_issue_from_sprint PASSED [ 29%]
+apps/issues/tests/test_backlog.py::TestUpdateIssueSprint::test_cannot_add_to_completed_sprint PASSED [ 30%]
+apps/issues/tests/test_bulk_update.py::TestBulkUpdateStoryPoints::test_bulk_update_success PASSED [ 30%]
+apps/issues/tests/test_bulk_update.py::TestBulkUpdateStoryPoints::test_bulk_update_partial_failure PASSED [ 31%]
+apps/issues/tests/test_bulk_update.py::TestBulkUpdateStoryPoints::test_bulk_update_negative_story_points_rejected PASSED [ 31%]
+apps/issues/tests/test_bulk_update.py::TestBulkUpdateStoryPoints::test_bulk_update_empty_list PASSED [ 32%]
+apps/issues/tests/test_bulk_update.py::TestBulkUpdateStoryPoints::test_bulk_update_unauthorized PASSED [ 33%]
+apps/issues/tests/test_bulk_update.py::TestBulkUpdateStoryPoints::test_bulk_update_project_not_found PASSED [ 33%]
+apps/issues/tests/test_epics.py::TestListEpics::test_list_epics_empty PASSED [ 34%]
+apps/issues/tests/test_epics.py::TestListEpics::test_list_epics_single PASSED [ 34%]
+apps/issues/tests/test_epics.py::TestListEpics::test_list_epics_with_progress PASSED [ 35%]
+apps/issues/tests/test_epics.py::TestListEpics::test_list_epics_unauthorized PASSED [ 36%]
+apps/issues/tests/test_epics.py::TestListEpics::test_list_epics_project_not_found PASSED [ 36%]
+apps/issues/tests/test_epics.py::TestFilterIssuesByEpic::test_filter_issues_by_epic PASSED [ 37%]
+apps/issues/tests/test_epics.py::TestFilterIssuesByEpic::test_issues_include_epic_id PASSED [ 37%]
+apps/issues/tests/test_epics.py::TestCreateIssueWithEpic::test_create_issue_with_epic FAILED [ 38%]
+apps/issues/tests/test_epics.py::TestCreateIssueWithEpic::test_update_issue_epic FAILED [ 39%]
+apps/issues/tests/test_epics.py::TestIssueTypeIsEpic::test_issue_type_includes_is_epic PASSED [ 39%]
+apps/issues/tests/test_hierarchy.py::TestGetIssueChildren::test_get_children_success PASSED [ 40%]
+apps/issues/tests/test_hierarchy.py::TestGetIssueChildren::test_get_children_empty PASSED [ 40%]
+apps/issues/tests/test_hierarchy.py::TestGetIssueChildren::test_get_children_unauthorized PASSED [ 41%]
+apps/issues/tests/test_hierarchy.py::TestGetIssueChildren::test_get_children_not_found PASSED [ 42%]
+apps/issues/tests/test_hierarchy.py::TestIssueChildrenStats::test_issue_includes_children_stats PASSED [ 42%]
+apps/issues/tests/test_hierarchy.py::TestIssueChildrenStats::test_issue_without_children_has_zero_stats PASSED [ 43%]
+apps/issues/tests/test_hierarchy.py::TestValidateParent::test_validate_parent_success PASSED [ 43%]
+apps/issues/tests/test_hierarchy.py::TestValidateParent::test_validate_parent_not_found PASSED [ 44%]
+apps/issues/tests/test_hierarchy.py::TestValidateParent::test_validate_parent_self_reference PASSED [ 45%]
+apps/issues/tests/test_hierarchy.py::TestValidateParent::test_validate_parent_invalid_type PASSED [ 45%]
+apps/issues/tests/test_hierarchy.py::TestCreateIssueWithParent::test_create_issue_with_valid_parent FAILED [ 46%]
+apps/issues/tests/test_hierarchy.py::TestCreateIssueWithParent::test_create_issue_with_invalid_parent_type PASSED [ 46%]
+apps/issues/tests/test_hierarchy.py::TestUpdateIssueParent::test_update_issue_parent FAILED [ 47%]
+apps/issues/tests/test_issues.py::TestIssueCreate::test_create_issue_success FAILED [ 48%]
+apps/issues/tests/test_issues.py::TestIssueCreate::test_create_issue_auto_increment FAILED [ 48%]
+apps/issues/tests/test_issues.py::TestIssueCreate::test_create_issue_invalid_type PASSED [ 49%]
+apps/issues/tests/test_issues.py::TestIssueList::test_list_issues PASSED [ 50%]
+apps/issues/tests/test_issues.py::TestIssueDetail::test_get_issue PASSED [ 50%]
+apps/issues/tests/test_issues.py::TestIssueDetail::test_get_issue_not_found PASSED [ 51%]
+apps/issues/tests/test_issues.py::TestIssueUpdate::test_update_issue_title FAILED [ 51%]
+apps/issues/tests/test_issues.py::TestIssueUpdate::test_update_issue_status FAILED [ 52%]
+apps/issues/tests/test_issues.py::TestIssueUpdate::test_update_issue_priority FAILED [ 53%]
+apps/issues/tests/test_issues.py::TestIssueDelete::test_delete_issue FAILED [ 53%]
+apps/issues/tests/test_issues.py::TestIssueDelete::test_delete_issue_non_member PASSED [ 54%]
+apps/projects/tests/test_projects.py::TestProjectList::test_list_projects_authenticated PASSED [ 54%]
+apps/projects/tests/test_projects.py::TestProjectList::test_list_projects_unauthenticated PASSED [ 55%]
+apps/projects/tests/test_projects.py::TestProjectCreate::test_create_project_success PASSED [ 56%]
+apps/projects/tests/test_projects.py::TestProjectCreate::test_create_project_duplicate_key PASSED [ 56%]
+apps/projects/tests/test_projects.py::TestProjectCreate::test_create_project_invalid_key PASSED [ 57%]
+apps/projects/tests/test_projects.py::TestProjectDetail::test_get_project_member PASSED [ 57%]
+apps/projects/tests/test_projects.py::TestProjectDetail::test_get_project_non_member PASSED [ 58%]
+apps/projects/tests/test_projects.py::TestProjectDetail::test_get_project_not_found PASSED [ 59%]
+apps/projects/tests/test_projects.py::TestProjectUpdate::test_update_project_admin PASSED [ 59%]
+apps/projects/tests/test_projects.py::TestProjectUpdate::test_update_project_non_admin PASSED [ 60%]
+apps/projects/tests/test_projects.py::TestProjectArchive::test_archive_project_admin PASSED [ 60%]
+apps/projects/tests/test_projects.py::TestProjectArchive::test_archive_project_non_admin PASSED [ 61%]
+apps/sprints/tests/test_api.py::TestSprintCreate::test_create_sprint PASSED [ 62%]
+apps/sprints/tests/test_api.py::TestSprintCreate::test_create_sprint_invalid_dates PASSED [ 62%]
+apps/sprints/tests/test_api.py::TestSprintCreate::test_create_sprint_project_not_found PASSED [ 63%]
+apps/sprints/tests/test_api.py::TestSprintList::test_list_sprints PASSED [ 63%]
+apps/sprints/tests/test_api.py::TestSprintList::test_list_sprints_filter_by_status PASSED [ 64%]
+apps/sprints/tests/test_api.py::TestSprintDetail::test_get_sprint PASSED [ 65%]
+apps/sprints/tests/test_api.py::TestSprintDetail::test_get_sprint_not_found PASSED [ 65%]
+apps/sprints/tests/test_api.py::TestSprintUpdate::test_update_sprint PASSED [ 66%]
+apps/sprints/tests/test_api.py::TestSprintDelete::test_delete_sprint PASSED [ 66%]
+apps/sprints/tests/test_api.py::TestSprintStart::test_start_sprint PASSED [ 67%]
+apps/sprints/tests/test_api.py::TestSprintStart::test_start_sprint_already_active PASSED [ 68%]
+apps/sprints/tests/test_api.py::TestSprintComplete::test_complete_sprint PASSED [ 68%]
+apps/sprints/tests/test_api.py::TestSprintComplete::test_complete_sprint_not_active PASSED [ 69%]
+apps/sprints/tests/test_api.py::TestSprintIssues::test_get_sprint_issues PASSED [ 69%]
+apps/sprints/tests/test_metrics.py::TestVelocityEndpoint::test_get_velocity_empty PASSED [ 70%]
+apps/sprints/tests/test_metrics.py::TestVelocityEndpoint::test_get_velocity_with_completed_sprints PASSED [ 71%]
+apps/sprints/tests/test_metrics.py::TestVelocityEndpoint::test_get_velocity_respects_limit PASSED [ 71%]
+apps/sprints/tests/test_metrics.py::TestVelocityEndpoint::test_get_velocity_ignores_non_completed_sprints PASSED [ 72%]
+apps/sprints/tests/test_metrics.py::TestVelocityEndpoint::test_get_velocity_project_not_found PASSED [ 72%]
+apps/sprints/tests/test_metrics.py::TestBurndownEndpoint::test_get_burndown_planned_sprint PASSED [ 73%]
+apps/sprints/tests/test_metrics.py::TestBurndownEndpoint::test_get_burndown_active_sprint PASSED [ 74%]
+apps/sprints/tests/test_metrics.py::TestBurndownEndpoint::test_get_burndown_completed_sprint PASSED [ 74%]
+apps/sprints/tests/test_metrics.py::TestBurndownEndpoint::test_get_burndown_sprint_not_found PASSED [ 75%]
+apps/sprints/tests/test_metrics.py::TestBurndownEndpoint::test_get_burndown_unauthorized_user PASSED [ 75%]
+apps/sprints/tests/test_metrics.py::TestVelocityService::test_get_velocity_returns_correct_structure PASSED [ 76%]
+apps/sprints/tests/test_metrics.py::TestBurndownService::test_get_burndown_returns_correct_structure PASSED [ 77%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_create_sprint PASSED [ 77%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_str PASSED [ 78%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_status_choices PASSED [ 78%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_goal_optional PASSED [ 79%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_story_points PASSED [ 80%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_remaining_story_points_none PASSED [ 80%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_remaining_story_points_with_zero_completed PASSED [ 81%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_dates_constraint PASSED [ 81%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_ordering PASSED [ 82%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_project_cascade_delete PASSED [ 83%]
+apps/sprints/tests/test_models.py::TestSprintModel::test_sprint_history_tracking PASSED [ 83%]
+apps/sprints/tests/test_services.py::TestSprintServiceCreate::test_create_sprint PASSED [ 84%]
+apps/sprints/tests/test_services.py::TestSprintServiceCreate::test_create_sprint_invalid_dates PASSED [ 84%]
+apps/sprints/tests/test_services.py::TestSprintServiceUpdate::test_update_sprint PASSED [ 85%]
+apps/sprints/tests/test_services.py::TestSprintServiceUpdate::test_update_sprint_invalid_dates PASSED [ 86%]
+apps/sprints/tests/test_services.py::TestSprintServiceStart::test_start_sprint PASSED [ 86%]
+apps/sprints/tests/test_services.py::TestSprintServiceStart::test_start_sprint_with_issues PASSED [ 87%]
+apps/sprints/tests/test_services.py::TestSprintServiceStart::test_start_sprint_already_active PASSED [ 87%]
+apps/sprints/tests/test_services.py::TestSprintServiceStart::test_start_sprint_another_active_exists PASSED [ 88%]
+apps/sprints/tests/test_services.py::TestSprintServiceComplete::test_complete_sprint PASSED [ 89%]
+apps/sprints/tests/test_services.py::TestSprintServiceComplete::test_complete_sprint_with_issues PASSED [ 89%]
+apps/sprints/tests/test_services.py::TestSprintServiceComplete::test_complete_sprint_move_to_next PASSED [ 90%]
+apps/sprints/tests/test_services.py::TestSprintServiceComplete::test_complete_sprint_not_active PASSED [ 90%]
+apps/sprints/tests/test_services.py::TestSprintServiceDelete::test_delete_sprint PASSED [ 91%]
+apps/sprints/tests/test_services.py::TestSprintServiceStats::test_get_sprint_stats PASSED [ 92%]
+apps/sprints/tests/test_services.py::TestSprintServiceIssueManagement::test_add_issue_to_sprint PASSED [ 92%]
+apps/sprints/tests/test_services.py::TestSprintServiceIssueManagement::test_add_issue_to_completed_sprint PASSED [ 93%]
+apps/sprints/tests/test_services.py::TestSprintServiceIssueManagement::test_remove_issue_from_sprint PASSED [ 93%]
+apps/users/tests/test_auth.py::TestAuthLogin::test_login_success PASSED  [ 94%]
+apps/users/tests/test_auth.py::TestAuthLogin::test_login_invalid_password PASSED [ 95%]
+apps/users/tests/test_auth.py::TestAuthLogin::test_login_invalid_email PASSED [ 95%]
+apps/users/tests/test_auth.py::TestAuthRegister::test_register_success PASSED [ 96%]
+apps/users/tests/test_auth.py::TestAuthRegister::test_register_duplicate_email PASSED [ 96%]
+apps/users/tests/test_auth.py::TestAuthRegister::test_register_short_password PASSED [ 97%]
+apps/users/tests/test_auth.py::TestAuthMe::test_me_authenticated PASSED  [ 98%]
+apps/users/tests/test_auth.py::TestAuthMe::test_me_unauthenticated PASSED [ 98%]
+apps/users/tests/test_auth.py::TestAuthRefresh::test_refresh_token_success PASSED [ 99%]
+apps/users/tests/test_auth.py::TestAuthRefresh::test_refresh_token_invalid PASSED [100%]
+
+=================================== FAILURES ===================================
+_________________ TestPublicEndpoints.test_health_check_public _________________
+api/tests/test_auth_enforcement.py:76: in test_health_check_public
+    response = api_client.get("/api/health")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1124: in get
+    response = super().get(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:475: in get
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:135: in run
+    return self._result_to_response(request, result, temporal_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:262: in _result_to_response
+    raise ConfigError(
+E   ninja.errors.ConfigError: Schema for status 503 is not set in response dict_keys([200])
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+_____________ TestCreateIssueWithEpic.test_create_issue_with_epic ______________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_epics.py:316: in test_create_issue_with_epic
+    response = client.post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1153: in post
+    response = super().post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:499: in post
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:445: in create_issue
+    issue = IssueService.create_issue(
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:308: in create_issue
+    ActivityService.log_creation(issue, user)
+apps/issues/services.py:85: in log_creation
+    return ActivityService.log(issue, user, ActivityAction.CREATED)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:55: in log
+    publish_activity(
+apps/core/events.py:169: in publish_activity
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+________________ TestCreateIssueWithEpic.test_update_issue_epic ________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_epics.py:347: in test_update_issue_epic
+    response = client.patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1286: in patch
+    response = super().patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:598: in patch
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:603: in update_issue
+    updated_issue = IssueService.update_issue(issue, user=request.auth, **update_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:557: in update_issue
+    publish_issue_updated(
+apps/core/events.py:77: in publish_issue_updated
+    publish_event(project_id, EventType.ISSUE_UPDATED, issue_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+________ TestCreateIssueWithParent.test_create_issue_with_valid_parent _________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_hierarchy.py:331: in test_create_issue_with_valid_parent
+    response = client.post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1153: in post
+    response = super().post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:499: in post
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:445: in create_issue
+    issue = IssueService.create_issue(
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:308: in create_issue
+    ActivityService.log_creation(issue, user)
+apps/issues/services.py:85: in log_creation
+    return ActivityService.log(issue, user, ActivityAction.CREATED)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:55: in log
+    publish_activity(
+apps/core/events.py:169: in publish_activity
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+________________ TestUpdateIssueParent.test_update_issue_parent ________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_hierarchy.py:406: in test_update_issue_parent
+    response = client.patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1286: in patch
+    response = super().patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:598: in patch
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:603: in update_issue
+    updated_issue = IssueService.update_issue(issue, user=request.auth, **update_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:557: in update_issue
+    publish_issue_updated(
+apps/core/events.py:77: in publish_issue_updated
+    publish_event(project_id, EventType.ISSUE_UPDATED, issue_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+__________________ TestIssueCreate.test_create_issue_success ___________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_issues.py:98: in test_create_issue_success
+    response = api_client.post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1153: in post
+    response = super().post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:499: in post
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:445: in create_issue
+    issue = IssueService.create_issue(
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:308: in create_issue
+    ActivityService.log_creation(issue, user)
+apps/issues/services.py:85: in log_creation
+    return ActivityService.log(issue, user, ActivityAction.CREATED)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:55: in log
+    publish_activity(
+apps/core/events.py:169: in publish_activity
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+_______________ TestIssueCreate.test_create_issue_auto_increment _______________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_issues.py:134: in test_create_issue_auto_increment
+    response = api_client.post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1153: in post
+    response = super().post(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:499: in post
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:445: in create_issue
+    issue = IssueService.create_issue(
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:308: in create_issue
+    ActivityService.log_creation(issue, user)
+apps/issues/services.py:85: in log_creation
+    return ActivityService.log(issue, user, ActivityAction.CREATED)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:55: in log
+    publish_activity(
+apps/core/events.py:169: in publish_activity
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+___________________ TestIssueUpdate.test_update_issue_title ____________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_issues.py:244: in test_update_issue_title
+    response = api_client.patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1286: in patch
+    response = super().patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:598: in patch
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:603: in update_issue
+    updated_issue = IssueService.update_issue(issue, user=request.auth, **update_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:557: in update_issue
+    publish_issue_updated(
+apps/core/events.py:77: in publish_issue_updated
+    publish_event(project_id, EventType.ISSUE_UPDATED, issue_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+___________________ TestIssueUpdate.test_update_issue_status ___________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_issues.py:268: in test_update_issue_status
+    response = api_client.patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1286: in patch
+    response = super().patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:598: in patch
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:603: in update_issue
+    updated_issue = IssueService.update_issue(issue, user=request.auth, **update_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:486: in update_issue
+    ActivityService.log_status_change(
+apps/issues/services.py:102: in log_status_change
+    return ActivityService.log(
+apps/issues/services.py:55: in log
+    publish_activity(
+apps/core/events.py:169: in publish_activity
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+__________________ TestIssueUpdate.test_update_issue_priority __________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_issues.py:291: in test_update_issue_priority
+    response = api_client.patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1286: in patch
+    response = super().patch(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:598: in patch
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:603: in update_issue
+    updated_issue = IssueService.update_issue(issue, user=request.auth, **update_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:85: in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+apps/issues/services.py:510: in update_issue
+    ActivityService.log_priority_change(
+apps/issues/services.py:139: in log_priority_change
+    return ActivityService.log(
+apps/issues/services.py:55: in log
+    publish_activity(
+apps/core/events.py:169: in publish_activity
+    publish_event(project_id, EventType.ACTIVITY_CREATED, activity_data)
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+______________________ TestIssueDelete.test_delete_issue _______________________
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:855: in connect_check_health
+    sock = self.retry.call_with_retry(
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/retry.py:116: in call_with_retry
+    return do()
+           ^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:856: in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1306: in _connect
+    raise err
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:1290: in _connect
+    sock.connect(socket_address)
+E   ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+apps/issues/tests/test_issues.py:316: in test_delete_issue
+    response = api_client.delete(f"/api/issues/{issue_key}", **auth_headers)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1321: in delete
+    response = super().delete(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:622: in delete
+    return self.generic(
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:671: in generic
+    return self.request(**r)
+           ^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:1087: in request
+    self.check_exception(response)
+../../../../../backend/.venv/lib/python3.14/site-packages/django/test/client.py:802: in check_exception
+    raise exc_value
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/exception.py:55: in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:198: in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:487: in sync_view_wrapper
+    return self._sync_view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:499: in _sync_view
+    return operation.run(request, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:141: in run
+    return self.api.on_exception(request, e)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/main.py:531: in on_exception
+    return handler(request, exc)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/errors.py:129: in _default_exception
+    raise exc  # let django deal with it
+    ^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/ninja/operation.py:134: in run
+    result = self.view_func(request, **values)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api/issues.py:631: in delete_issue
+    IssueService.delete_issue(issue)
+apps/issues/services.py:581: in delete_issue
+    publish_issue_deleted(project_id, issue_key)
+apps/core/events.py:97: in publish_issue_deleted
+    publish_event(project_id, EventType.ISSUE_DELETED, {"key": issue_key})
+apps/core/events.py:67: in publish_event
+    r.publish(channel, json.dumps(message))
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/commands/core.py:6041: in publish
+    return self.execute_command("PUBLISH", channel, message, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:657: in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/client.py:663: in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/utils.py:196: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:2603: in get_connection
+    connection.connect()
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:846: in connect
+    self.connect_check_health(check_health=True)
+../../../../../backend/.venv/lib/python3.14/site-packages/redis/connection.py:863: in connect_check_health
+    raise ConnectionError(self._error_message(e))
+E   redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+------------------------------ Captured log call -------------------------------
+ERROR    apps.core.middleware:middleware.py:200 Request finished
+=============================== warnings summary ===============================
+api/tests/test_auth_enforcement.py: 18 warnings
+api/tests/test_setup.py: 6 warnings
+apps/boards/tests/test_filters.py: 4 warnings
+apps/issues/tests/test_backlog.py: 7 warnings
+apps/issues/tests/test_bulk_update.py: 6 warnings
+apps/issues/tests/test_epics.py: 10 warnings
+apps/issues/tests/test_hierarchy.py: 9 warnings
+apps/issues/tests/test_issues.py: 11 warnings
+apps/projects/tests/test_projects.py: 12 warnings
+apps/sprints/tests/test_api.py: 14 warnings
+apps/sprints/tests/test_metrics.py: 10 warnings
+apps/users/tests/test_auth.py: 10 warnings
+  /Users/reinhardbitter/PycharmProjects/CTrack/backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:62: UserWarning: No directory at: /Users/reinhardbitter/PycharmProjects/CTrack/.auto-claude/worktrees/tasks/002-api-authentication-enforcement/backend/staticfiles/
+    mw_instance = middleware(adapted_handler)
+
+api/tests/test_auth_enforcement.py: 114 warnings
+  /Users/reinhardbitter/PycharmProjects/CTrack/backend/.venv/lib/python3.14/site-packages/ninja/signature/utils.py:60: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(callable)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_check_public - ninja.errors.ConfigError: Schema for status 503 is not set in response dict_keys([200])
+FAILED apps/issues/tests/test_epics.py::TestCreateIssueWithEpic::test_create_issue_with_epic - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_epics.py::TestCreateIssueWithEpic::test_update_issue_epic - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_hierarchy.py::TestCreateIssueWithParent::test_create_issue_with_valid_parent - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_hierarchy.py::TestUpdateIssueParent::test_update_issue_parent - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_issues.py::TestIssueCreate::test_create_issue_success - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_issues.py::TestIssueCreate::test_create_issue_auto_increment - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_issues.py::TestIssueUpdate::test_update_issue_title - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_issues.py::TestIssueUpdate::test_update_issue_status - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_issues.py::TestIssueUpdate::test_update_issue_priority - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+FAILED apps/issues/tests/test_issues.py::TestIssueDelete::test_delete_issue - redis.exceptions.ConnectionError: Error 61 connecting to localhost:6379. Connection refused.
+================= 11 failed, 155 passed, 231 warnings in 4.00s =================

@@ -53,6 +53,6 @@ strict = false
 django_settings_module = "ctrack.settings.development"
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "ctrack.settings.development"
+DJANGO_SETTINGS_MODULE = "ctrack.settings.test"
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --reuse-db"

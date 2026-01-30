@@ -67,8 +67,7 @@ def audit_api_endpoints():
     summary = defaultdict(int)
 
     # Iterate through all registered routers and their operations
-    for router_path, router_item in api._routers:
-        router = router_item["router"]
+    for router_path, router in api._routers:
 
         # Check if router has default auth
         router_auth = getattr(router, "auth", None)
@@ -76,18 +75,26 @@ def audit_api_endpoints():
         # Iterate through all operations in the router
         for path_operations in router.path_operations.values():
             for operation in path_operations.operations:
-                # Determine effective auth (operation auth overrides router auth)
-                effective_auth = (
-                    operation.auth if hasattr(operation, "auth") else router_auth
-                )
+                # Django Ninja stores auth in auth_callbacks list
+                # - Empty list [] means auth=None was explicitly set (public endpoint)
+                # - Non-empty list means auth is configured
+                # - If not present, inherited from router
 
-                # Handle case where operation.auth is set but we need to check if it's explicitly None
-                if hasattr(operation, "auth"):
-                    effective_auth = operation.auth
-                elif router_auth is not None:
-                    effective_auth = router_auth
+                if hasattr(operation, "auth_callbacks"):
+                    if len(operation.auth_callbacks) == 0:
+                        # Explicitly public (auth=None)
+                        effective_auth = None
+                    else:
+                        # Has auth configured
+                        effective_auth = operation.auth_callbacks[0]
                 else:
-                    effective_auth = None
+                    # Fallback to router auth
+                    from ninja.constants import NOT_SET
+
+                    if router_auth is NOT_SET:
+                        effective_auth = None
+                    else:
+                        effective_auth = router_auth
 
                 auth_type = get_auth_type(effective_auth)
 
@@ -139,11 +146,16 @@ def verify_auth_enforcement(results):
     none_endpoints = [e for e in results["endpoints"] if e["auth_type"] == "none"]
 
     # Expected public endpoints that should not require auth
+    # Paths here match the router-level paths (without /api prefix)
     public_expected = [
-        "/api/health",
-        "/api/auth/login",
-        "/api/auth/register",
-        "/api/auth/refresh",
+        "/health",
+        "/health/ready",
+        "/health/live",
+        "/auth/login",
+        "/auth/register",
+        "/auth/refresh",
+        "/setup",
+        "/metrics",
     ]
 
     # Find endpoints with no auth that are not in the expected public list

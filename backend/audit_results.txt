@@ -1,0 +1,10 @@
+Starting authentication enforcement verification...
+
+Total endpoints: 114
+Endpoints with explicit auth: 114
+
+✅ PASS: All endpoints have explicit auth configuration
+  - Required auth: 103
+  - Optional auth: 0
+  - Query token auth: 1
+  - Public (explicitly configured): 10

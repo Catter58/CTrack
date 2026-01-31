@@ -69,6 +69,9 @@ def health_check(request: HttpRequest) -> tuple[int, dict[str, Any]]:
     Проверка работоспособности сервиса.
 
     Возвращает статус базы данных и кэша.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    for monitoring systems, load balancers, and orchestration platforms.
     """
     checks = {
         "database": check_database(),
@@ -88,11 +91,21 @@ def health_check(request: HttpRequest) -> tuple[int, dict[str, Any]]:
 
 @router.get("/ready", auth=None)
 def readiness_check(request):
-    """Kubernetes readiness probe."""
+    """
+    Kubernetes readiness probe.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    for Kubernetes readiness checks.
+    """
     return {"ready": True}
 
 
 @router.get("/live", auth=None)
 def liveness_check(request):
-    """Kubernetes liveness probe."""
+    """
+    Kubernetes liveness probe.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    for Kubernetes liveness checks.
+    """
     return {"live": True}

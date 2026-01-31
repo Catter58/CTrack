@@ -58,9 +58,15 @@ class SetupCompleteResponseSchema(Schema):
 @router.get(
     "/status",
     response={200: SetupStatusSchema},
+    auth=None,
 )
 def setup_status(request):
-    """Check if initial setup is required."""
+    """
+    Check if initial setup is required.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    to allow the setup wizard to determine if initial configuration is needed.
+    """
     has_users = User.objects.exists()
     has_issue_types = IssueType.objects.filter(project__isnull=True).exists()
     has_statuses = Status.objects.filter(project__isnull=True).exists()
@@ -76,10 +82,16 @@ def setup_status(request):
 @router.post(
     "/complete",
     response={201: SetupCompleteResponseSchema, 400: ErrorSchema},
+    auth=None,
 )
 @transaction.atomic
 def setup_complete(request, data: SetupCompleteSchema):
-    """Complete initial setup."""
+    """
+    Complete initial setup.
+
+    Public endpoint (auth=None) - intentionally accessible without authentication
+    to allow creation of the first admin user before any authentication exists.
+    """
     # Check if setup is still required
     if User.objects.exists():
         return 400, {"detail": "Настройка уже выполнена"}

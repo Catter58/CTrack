@@ -1,0 +1,40 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0 -- /Users/reinhardbitter/PycharmProjects/CTrack/backend/.venv/bin/python
+cachedir: .pytest_cache
+django: version: 6.0.1, settings: ctrack.settings.test (from ini)
+rootdir: /Users/reinhardbitter/PycharmProjects/CTrack/.auto-claude/worktrees/tasks/002-api-authentication-enforcement/backend
+configfile: pyproject.toml
+plugins: django-4.11.1, asyncio-1.3.0, Faker-40.1.2, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 18 items
+
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_auth_register_public PASSED [  5%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_auth_login_public PASSED [ 11%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_auth_refresh_public PASSED [ 16%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_check_public PASSED [ 22%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_ready_public PASSED [ 27%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_health_live_public PASSED [ 33%]
+api/tests/test_auth_enforcement.py::TestPublicEndpoints::test_setup_status_public PASSED [ 38%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_auth_logout_requires_auth PASSED [ 44%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_auth_me_requires_auth PASSED [ 50%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_projects_list_requires_auth PASSED [ 55%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_projects_create_requires_auth PASSED [ 61%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_issues_list_requires_auth PASSED [ 66%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_users_list_requires_auth PASSED [ 72%]
+api/tests/test_auth_enforcement.py::TestProtectedEndpoints::test_protected_endpoints_require_auth PASSED [ 77%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_auth_me_with_valid_token PASSED [ 83%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_projects_list_with_valid_token PASSED [ 88%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_users_list_with_valid_token PASSED [ 94%]
+api/tests/test_auth_enforcement.py::TestAuthenticatedAccess::test_invalid_token_rejected PASSED [100%]
+
+=============================== warnings summary ===============================
+api/tests/test_auth_enforcement.py: 18 warnings
+  /Users/reinhardbitter/PycharmProjects/CTrack/backend/.venv/lib/python3.14/site-packages/django/core/handlers/base.py:62: UserWarning: No directory at: /Users/reinhardbitter/PycharmProjects/CTrack/.auto-claude/worktrees/tasks/002-api-authentication-enforcement/backend/staticfiles/
+    mw_instance = middleware(adapted_handler)
+
+api/tests/test_auth_enforcement.py: 114 warnings
+  /Users/reinhardbitter/PycharmProjects/CTrack/backend/.venv/lib/python3.14/site-packages/ninja/signature/utils.py:60: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(callable)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 18 passed, 132 warnings in 0.48s =======================

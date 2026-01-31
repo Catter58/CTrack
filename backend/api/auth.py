@@ -24,7 +24,7 @@ from apps.users.schemas import (
     UserSchema,
 )
 
-router = Router()
+router = Router(auth=AuthBearer())
 
 
 @router.post("/register", response={201: TokenSchema, 400: ErrorSchema}, auth=None)
@@ -133,9 +133,7 @@ def refresh(request, data: RefreshTokenSchema):
     }
 
 
-@router.post(
-    "/logout", response={200: MessageSchema, 401: ErrorSchema}, auth=AuthBearer()
-)
+@router.post("/logout", response={200: MessageSchema, 401: ErrorSchema})
 def logout(request, data: RefreshTokenSchema):
     """
     Logout user by invalidating refresh token.
@@ -163,7 +161,7 @@ def logout(request, data: RefreshTokenSchema):
     return 200, {"message": "Успешный выход из системы"}
 
 
-@router.get("/me", response={200: UserSchema, 401: ErrorSchema}, auth=AuthBearer())
+@router.get("/me", response={200: UserSchema, 401: ErrorSchema})
 def me(request):
     """
     Get current authenticated user's profile.

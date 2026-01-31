@@ -50,16 +50,16 @@ def test_all_issues_endpoints_present():
 
     # Verify critical endpoints from each domain router are present
     critical_endpoints = [
-        "GET /projects/{key}/issue-types",  # issue_types.py
-        "GET /projects/{key}/statuses",  # statuses.py
-        "GET /issues",  # issues.py
-        "GET /issues/{issue_key}/comments",  # comments.py
-        "GET /issues/{issue_key}/activity",  # activity.py
-        "GET /issues/{issue_key}/transitions",  # workflow.py
-        "GET /projects/{key}/backlog",  # backlog.py
-        "GET /projects/{key}/epics",  # epics.py
-        "GET /issues/{issue_key}/attachments",  # attachments.py
-        "GET /issues/{issue_key}/editing",  # editing.py
+        "GET /api/projects/{key}/issue-types",  # issue_types.py
+        "GET /api/projects/{key}/statuses",  # statuses.py
+        "GET /api/issues",  # issues.py
+        "GET /api/issues/{issue_key}/comments",  # comments.py
+        "GET /api/issues/{issue_key}/activity",  # activity.py
+        "GET /api/issues/{issue_key}/transitions",  # workflow.py
+        "GET /api/projects/{key}/backlog",  # backlog.py
+        "GET /api/projects/{key}/epics",  # epics.py
+        "GET /api/issues/{issue_key}/attachments",  # attachments.py
+        "GET /api/issues/{issue_key}/editing",  # editing.py
     ]
 
     for endpoint in critical_endpoints:
@@ -83,27 +83,27 @@ def test_api_tags_correct():
 
     # Track endpoints without Issues tag that should have it
     issues_paths = [
-        "/projects/{key}/issue-types",
-        "/issue-types/{issue_type_id}",
-        "/projects/{key}/statuses",
-        "/statuses/{status_id}",
-        "/issues",
-        "/projects/{key}/issues",
-        "/issues/{issue_key}",
-        "/issues/{issue_key}/children",
-        "/issues/{issue_key}/comments",
-        "/comments/{comment_id}",
-        "/issues/{issue_key}/activity",
-        "/issues/{issue_key}/transitions",
-        "/workflow-transitions/{transition_id}",
-        "/projects/{key}/backlog",
-        "/issues/{issue_key}/sprint",
-        "/projects/{key}/issues/bulk-update",
-        "/projects/{key}/epics",
-        "/issues/{issue_key}/attachments",
-        "/attachments/{attachment_id}",
-        "/attachments/{attachment_id}/download",
-        "/issues/{issue_key}/editing",
+        "/api/projects/{key}/issue-types",
+        "/api/issue-types/{issue_type_id}",
+        "/api/projects/{key}/statuses",
+        "/api/statuses/{status_id}",
+        "/api/issues",
+        "/api/projects/{key}/issues",
+        "/api/issues/{issue_key}",
+        "/api/issues/{issue_key}/children",
+        "/api/issues/{issue_key}/comments",
+        "/api/comments/{comment_id}",
+        "/api/issues/{issue_key}/activity",
+        "/api/issues/{issue_key}/transitions",
+        "/api/workflow/{transition_id}",
+        "/api/projects/{key}/backlog",
+        "/api/issues/{issue_key}/sprint",
+        "/api/projects/{key}/issues/bulk-update",
+        "/api/projects/{key}/epics",
+        "/api/issues/{issue_key}/attachments",
+        "/api/attachments/{attachment_id}",
+        "/api/attachments/{attachment_id}/download",
+        "/api/issues/{issue_key}/editing",
     ]
 
     missing_tags = []

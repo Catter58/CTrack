@@ -827,32 +827,30 @@ class IssueService:
 
         Returns list of dicts with epic data and computed progress.
         """
-        from django.db.models import Q, Sum
+        from django.db.models import Count, Q, Sum
 
-        epics = Issue.objects.filter(
-            project=project,
-            issue_type__is_epic=True,
-        ).select_related("issue_type", "status")
+        epics = (
+            Issue.objects.filter(
+                project=project,
+                issue_type__is_epic=True,
+            )
+            .select_related("issue_type", "status")
+            .annotate(
+                total_issues=Count("epic_issues"),
+                completed_issues=Count(
+                    "epic_issues",
+                    filter=Q(epic_issues__status__category=StatusCategory.DONE),
+                ),
+                total_story_points=Sum("epic_issues__story_points"),
+                completed_story_points=Sum(
+                    "epic_issues__story_points",
+                    filter=Q(epic_issues__status__category=StatusCategory.DONE),
+                ),
+            )
+        )
 
         result = []
         for epic in epics:
-            # Get all issues linked to this epic
-            epic_issues = Issue.objects.filter(epic=epic)
-
-            # Calculate statistics
-            total_issues = epic_issues.count()
-            completed_issues = epic_issues.filter(
-                status__category=StatusCategory.DONE
-            ).count()
-
-            sp_stats = epic_issues.aggregate(
-                total_sp=Sum("story_points"),
-                completed_sp=Sum(
-                    "story_points",
-                    filter=Q(status__category=StatusCategory.DONE),
-                ),
-            )
-
             result.append(
                 {
                     "id": epic.id,
@@ -861,10 +859,10 @@ class IssueService:
                     "description": epic.description,
                     "priority": epic.priority,
                     "status": epic.status,
-                    "total_issues": total_issues,
-                    "completed_issues": completed_issues,
-                    "total_story_points": sp_stats["total_sp"] or 0,
-                    "completed_story_points": sp_stats["completed_sp"] or 0,
+                    "total_issues": epic.total_issues,
+                    "completed_issues": epic.completed_issues,
+                    "total_story_points": epic.total_story_points or 0,
+                    "completed_story_points": epic.completed_story_points or 0,
                 }
             )
 

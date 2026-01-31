@@ -14,7 +14,16 @@ from api.demo import router as demo_router
 from api.events import router as events_router
 from api.feed import router as feed_router
 from api.health import router as health_router
-from api.issues import router as issues_router
+from api.issues.activity import router as issues_activity_router
+from api.issues.attachments import router as issues_attachments_router
+from api.issues.backlog import router as issues_backlog_router
+from api.issues.comments import router as issues_comments_router
+from api.issues.editing import router as issues_editing_router
+from api.issues.epics import router as issues_epics_router
+from api.issues.issue_types import router as issues_issue_types_router
+from api.issues.issues import router as issues_issues_router
+from api.issues.statuses import router as issues_statuses_router
+from api.issues.workflow import router as issues_workflow_router
 from api.metrics import router as metrics_router
 from api.projects import router as projects_router
 from api.reports import router as reports_router
@@ -39,8 +48,17 @@ api.add_router("/auth", auth_router, tags=["Auth"])
 # Projects endpoints
 api.add_router("/projects", projects_router, tags=["Projects"])
 
-# Issues endpoints
-api.add_router("", issues_router, tags=["Issues"])
+# Issues endpoints (domain-specific routers)
+api.add_router("", issues_issue_types_router, tags=["Issues"])
+api.add_router("", issues_statuses_router, tags=["Issues"])
+api.add_router("", issues_issues_router, tags=["Issues"])
+api.add_router("", issues_comments_router, tags=["Issues"])
+api.add_router("", issues_activity_router, tags=["Issues"])
+api.add_router("", issues_workflow_router, tags=["Issues"])
+api.add_router("", issues_backlog_router, tags=["Issues"])
+api.add_router("", issues_epics_router, tags=["Issues"])
+api.add_router("", issues_attachments_router, tags=["Issues"])
+api.add_router("", issues_editing_router, tags=["Issues"])
 
 # Boards endpoints
 api.add_router("", boards_router, tags=["Boards"])

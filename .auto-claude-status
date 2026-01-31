@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "002-api-authentication-enforcement",
+  "spec": "004-split-monolithic-issues-api-router-into-domain-spe",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 11,
+    "completed": 3,
+    "total": 16,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Security Verification",
+    "current": "Split Into Domain Routers",
     "id": null,
-    "total": 3
+    "total": 10
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 13,
-    "started_at": "2026-01-30T23:31:54.004793"
+    "number": 5,
+    "started_at": "2026-01-31T12:27:57.917675"
   },
-  "last_update": "2026-01-31T00:15:35.647491"
+  "last_update": "2026-01-31T12:38:16.721904"
 }
